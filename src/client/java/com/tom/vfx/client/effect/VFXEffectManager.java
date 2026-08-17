@@ -133,8 +133,10 @@ public class VFXEffectManager {
 		List<BlockPos> positions = definition != null ? definition.getPositions() : List.of();
 		BlockPos payloadPos = payloadPosition(params);
 		if (payloadPos != null) {
-			// Explicit position overrides (e.g. /vfx playat) win over definition positions.
+			// Explicit position overrides (e.g. /vfx playat) win over definition positions
+			// and re-anchor any spatial world bindings to that position.
 			positions = List.of(payloadPos);
+			timeline.rebindPositions(payloadPos.getX(), payloadPos.getY(), payloadPos.getZ());
 		}
 		List<String> entityTargets = !entityTargetsIn.isEmpty() ? entityTargetsIn : (definition != null ? definition.getEntityTargets() : List.of());
 		VFXActiveEffect effect = new VFXActiveEffect(effectId, type, this.clock, timeline, fadeTicks, loop, positions, entityTargets);
@@ -186,9 +188,10 @@ public class VFXEffectManager {
 
 	/**
 	 * Live-overrides a parameter of every running instance of the effect, without restarting
-	 * its timeline (used by {@code /vfx set}).
+	 * its timeline (used by {@code /vfx set}). When no instance is running, a persistent
+	 * instance is started with the override baked in, so the command works standalone.
 	 *
-	 * @return {@code true} when at least one running instance was found and updated
+	 * @return {@code true} when the effect is known and was applied or started
 	 */
 	public boolean setParam(final Identifier effectId, final String name, final float value) {
 		boolean applied = false;
@@ -198,7 +201,13 @@ public class VFXEffectManager {
 				applied = true;
 			}
 		}
-		return applied;
+		if (!applied) {
+			if (VFXDefinitionManager.get().get(effectId) == null) {
+				return false;
+			}
+			this.play(effectId, -1, Map.of(name, value), null);
+		}
+		return true;
 	}
 
 	/**
