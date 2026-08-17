@@ -1,0 +1,7 @@
+{
+	"commands.tompfx.unknown_effect": "Unknown VFX effect: %s",
+	"commands.tompfx.played": "Playing VFX %s for %s player(s)",
+	"commands.tompfx.played_at": "Playing VFX %s at [%s, %s, %s] for %s player(s)",
+	"commands.tompfx.stopped": "Stopped VFX %s for %s player(s)",
+	"commands.tompfx.list_count": "%s VFX definition(s) loaded"
+}

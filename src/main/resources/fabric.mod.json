@@ -1,0 +1,34 @@
+{
+	"schemaVersion": 1,
+	"id": "tompfx",
+	"version": "${version}",
+	"name": "TOM Post Effects",
+	"description": "Client-side VFX library: ping-pong FBO post-processing (chromatic aberration, color grading, distortion, dent, gradient map, posterize, blur, pixelate, hue isolation, vignette, screen flash, motion blur), camera shake, block tint/outline overlays, keyframe animation, world/camera bindings, datapack-defined effects, sound triggers and a public Java API.",
+	"authors": [
+		"Tom"
+	],
+	"license": "MIT",
+	"icon": "assets/tompfx/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.tom.vfx.VFXMod"
+		],
+		"client": [
+			"com.tom.vfx.client.VFXClient"
+		]
+	},
+	"mixins": [
+		"tompfx.mixins.json",
+		{
+			"config": "tompfx.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.1",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
