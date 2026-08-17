@@ -256,14 +256,24 @@ public class VFXDefinition {
 
 	private static BoundParam parseBound(final JsonObject object) {
 		BoundParam.Kind kind = BoundParam.Kind.fromString(GsonHelper.getAsString(object, "bind"));
-		JsonArray pos = GsonHelper.getAsJsonArray(object, "pos");
-		if (pos.size() != 3) {
-			throw new IllegalArgumentException("Binding 'pos' must be an array of [x, y, z]: " + object);
+		double x = 0.0;
+		double y = 0.0;
+		double z = 0.0;
+		if (kind.needsPos()) {
+			JsonArray pos = GsonHelper.getAsJsonArray(object, "pos");
+			if (pos.size() != 3) {
+				throw new IllegalArgumentException("Binding 'pos' must be an array of [x, y, z]: " + object);
+			}
+			x = pos.get(0).getAsDouble();
+			y = pos.get(1).getAsDouble();
+			z = pos.get(2).getAsDouble();
 		}
-		double x = pos.get(0).getAsDouble();
-		double y = pos.get(1).getAsDouble();
-		double z = pos.get(2).getAsDouble();
-		float range = GsonHelper.getAsFloat(object, "range", kind == BoundParam.Kind.LOOK ? 90.0F : 16.0F);
+		float defaultRange = switch (kind) {
+			case LOOK -> 90.0F;
+			case SPEED -> 5.0F;
+			default -> 16.0F;
+		};
+		float range = GsonHelper.getAsFloat(object, "range", defaultRange);
 		boolean invert = GsonHelper.getAsBoolean(object, "invert", false);
 		float scale = GsonHelper.getAsFloat(object, "scale", 1.0F);
 		float yaw = GsonHelper.getAsFloat(object, "yaw", 0.0F);

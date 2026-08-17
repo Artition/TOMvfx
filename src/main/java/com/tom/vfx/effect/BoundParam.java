@@ -39,7 +39,24 @@ public record BoundParam(Kind kind, double x, double y, double z, float yaw, flo
 		/** Camera yaw delta in degrees per tick (positive = turned right). */
 		CAMERA_YAW_DELTA("camera_yaw_delta"),
 		/** Camera pitch delta in degrees per tick (positive = turned up). */
-		CAMERA_PITCH_DELTA("camera_pitch_delta");
+		CAMERA_PITCH_DELTA("camera_pitch_delta"),
+		/** Player health fraction, 0..1 (health / max health). */
+		HEALTH("health"),
+		/** Player hunger fraction, 0..1 (food / 20). */
+		HUNGER("hunger"),
+		/** Player horizontal speed in blocks per second, divided by {@code range} (default 5 = sprint). */
+		SPEED("speed"),
+		/** Light level at the player's position, 0..1 (level / 15). */
+		LIGHT_LEVEL("light_level"),
+		/** Fraction of the day cycle, 0..1 (0 = sunrise of day 0). */
+		TIME_OF_DAY("time_of_day");
+
+		/**
+		 * True when this kind needs a world {@code pos} anchor.
+		 */
+		public boolean needsPos() {
+			return this == SCREEN_X || this == SCREEN_Y || this == PROXIMITY;
+		}
 
 		private final String id;
 

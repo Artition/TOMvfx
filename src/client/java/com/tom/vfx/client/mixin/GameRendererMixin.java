@@ -46,6 +46,22 @@ public abstract class GameRendererMixin {
 			Matrix4f viewRotProj = camera.getViewRotationProjectionMatrix(new Matrix4f());
 			VFXWorldBindings.update((float) camPos.x, (float) camPos.y, (float) camPos.z, camera.yRot(), camera.xRot(), viewRotProj, deltaTicks);
 		}
+		if (minecraft.player != null) {
+			var player = minecraft.player;
+			var playerLevel = minecraft.level;
+			var delta = player.getDeltaMovement();
+			float speed = (float) Math.sqrt(delta.x * delta.x + delta.z * delta.z) * 20.0F;
+			var lightPos = player.blockPosition();
+			int blockLight = playerLevel.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, lightPos);
+			int skyLight = Math.max(0, playerLevel.getBrightness(net.minecraft.world.level.LightLayer.SKY, lightPos) - playerLevel.getSkyDarken());
+			VFXWorldBindings.updatePlayerState(
+				player.getHealth() / Math.max(player.getMaxHealth(), 1.0e-4F),
+				player.getFoodData().getFoodLevel() / 20.0F,
+				speed,
+				Math.max(blockLight, skyLight) / 15.0F,
+				(playerLevel.getOverworldClockTime() % 24000L) / 24000.0F
+			);
+		}
 		manager.advance(deltaTicks);
 		manager.update();
 

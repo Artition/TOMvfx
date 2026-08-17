@@ -14,10 +14,23 @@ import org.jspecify.annotations.Nullable;
 public final class VFXWorldBindings {
 	private static final float SMOOTHING_RATE = 8.0F;
 	private static volatile @Nullable Frame frame;
+	private static volatile @Nullable PlayerState playerState;
 	private static float lastYaw;
 	private static float lastPitch;
 	private static float smoothedYawDelta;
 	private static float smoothedPitchDelta;
+
+	/**
+	 * Snapshot of the local player's state for one frame (player-state bindings).
+	 *
+	 * @param health     health fraction 0..1
+	 * @param hunger     hunger fraction 0..1
+	 * @param speed      horizontal speed in blocks per second
+	 * @param light      light level 0..1 at the player's position
+	 * @param timeOfDay  day-cycle fraction 0..1
+	 */
+	public record PlayerState(float health, float hunger, float speed, float light, float timeOfDay) {
+	}
 
 	private VFXWorldBindings() {
 	}
@@ -61,10 +74,18 @@ public final class VFXWorldBindings {
 	}
 
 	/**
-	 * Drops the camera state (e.g. when leaving a world).
+	 * Publishes the local player state for the current frame (client only).
+	 */
+	public static void updatePlayerState(final float health, final float hunger, final float speed, final float light, final float timeOfDay) {
+		playerState = new PlayerState(health, hunger, speed, light, timeOfDay);
+	}
+
+	/**
+	 * Drops the camera and player state (e.g. when leaving a world).
 	 */
 	public static void clear() {
 		frame = null;
+		playerState = null;
 		lastYaw = 0.0F;
 		lastPitch = 0.0F;
 		smoothedYawDelta = 0.0F;
@@ -87,7 +108,27 @@ public final class VFXWorldBindings {
 			case SCREEN_X, SCREEN_Y, PROXIMITY, LOOK -> evaluateSpatial(binding, current, fallback);
 			case CAMERA_YAW_DELTA -> smoothedYawDelta * binding.scale();
 			case CAMERA_PITCH_DELTA -> smoothedPitchDelta * binding.scale();
+			case HEALTH, HUNGER, SPEED, LIGHT_LEVEL, TIME_OF_DAY -> evaluatePlayer(binding, fallback);
 		};
+	}
+
+	private static float evaluatePlayer(final BoundParam binding, final float fallback) {
+		PlayerState state = playerState;
+		if (state == null) {
+			return fallback;
+		}
+		float value = switch (binding.kind()) {
+			case HEALTH -> state.health();
+			case HUNGER -> state.hunger();
+			case SPEED -> Math.min(state.speed() / Math.max(binding.range(), 1.0e-4F), 1.0F);
+			case LIGHT_LEVEL -> state.light();
+			case TIME_OF_DAY -> state.timeOfDay();
+			default -> fallback;
+		};
+		if (binding.invert()) {
+			value = 1.0F - value;
+		}
+		return value * binding.scale();
 	}
 
 	private static float evaluateSpatial(final BoundParam binding, final Frame current, final float fallback) {
