@@ -21,7 +21,7 @@ public class VFXTimeline {
 
 	private final float duration;
 	private final Map<String, AnimatedValue> values;
-	private final Map<String, BoundParam> bindings;
+	private Map<String, BoundParam> bindings;
 	private final Map<String, AnimatedValue> overrides = new LinkedHashMap<>();
 	private float elapsed;
 
@@ -112,6 +112,28 @@ public class VFXTimeline {
 
 	public Map<String, BoundParam> getBindings() {
 		return this.bindings;
+	}
+
+	/**
+	 * Re-anchors every spatial binding ({@code screen_x}/{@code screen_y}/{@code proximity})
+	 * to the given world position — used when an explicit position override arrives (e.g.
+	 * {@code /vfx playat}), letting world-bound effects be re-targeted per play.
+	 *
+	 * @param x world X
+	 * @param y world Y
+	 * @param z world Z
+	 */
+	public void rebindPositions(final double x, final double y, final double z) {
+		final Map<String, BoundParam> updated = new LinkedHashMap<>();
+		for (final Map.Entry<String, BoundParam> entry : this.bindings.entrySet()) {
+			final BoundParam binding = entry.getValue();
+			if (binding.kind().needsPos()) {
+				updated.put(entry.getKey(), new BoundParam(binding.kind(), x, y, z, binding.yaw(), binding.pitch(), binding.range(), binding.invert(), binding.scale()));
+			} else {
+				updated.put(entry.getKey(), binding);
+			}
+		}
+		this.bindings = Collections.unmodifiableMap(updated);
 	}
 
 	/**
