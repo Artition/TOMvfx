@@ -20,6 +20,8 @@
 
 При запуске `/vfx stop` эффект удаляется мгновенно, если `fade_ticks` не задан или равен 0; иначе — плавное затухание к нейтральным значениям.
 
+Повторный `/vfx play` того же эффекта **не заменяет** играющий экземпляр, а добавляет ещё один независимый (например, несколько вмятин на экране сразу). `/vfx stop <эффект>` останавливает все экземпляры; всего одновременно играют до 64 эффектов.
+
 ---
 
 ## 2. Типы эффектов
@@ -45,6 +47,8 @@
 | `scanlines` | `intensity` (0..1), `line_count` (полос на 100px), `speed` (дрейф) | CRT-полосы, плывущие по экрану |
 | `depth_of_field` | `intensity` (0..1), `focus_center` (UV Y), `focus_range` (полуширина резкости) | Экранный tilt-shift: резкая полоса, размытие от неё |
 | `letterbox` | `height` (0..0.5), `color_r/g/b` | Кино-полосы сверху и снизу экрана |
+| `invert` | `intensity` (0..1) | Инверсия цветов экрана |
+| `vortex` | `strength` (радианы, ± = направление), `radius`, `center_x`, `center_y` (UV) | Закручивает пиксели воронкой вокруг точки |
 | `fov_modifier` | `fov_delta` (градусы) | Изменение поля зрения (FOV) игрока |
 
 ### 2.2 Мировые оверлеи (геометрия модели блока)
@@ -248,7 +252,7 @@
 
 ## 6. Встроенные эффекты (без датапака)
 
-Пост-обработка: `tompfx:chromatic_aberration`, `tompfx:color_grade`, `tompfx:distortion`, `tompfx:dent`, `tompfx:gradient_map`, `tompfx:posterize`, `tompfx:blur`, `tompfx:pixelate`, `tompfx:hue_isolation`, `tompfx:vignette`, `tompfx:screen_flash`, `tompfx:motion_blur`, `tompfx:bloom`, `tompfx:film_grain`, `tompfx:scanlines`, `tompfx:depth_of_field`, `tompfx:letterbox`.
+Пост-обработка: `tompfx:chromatic_aberration`, `tompfx:color_grade`, `tompfx:distortion`, `tompfx:dent`, `tompfx:gradient_map`, `tompfx:posterize`, `tompfx:blur`, `tompfx:pixelate`, `tompfx:hue_isolation`, `tompfx:vignette`, `tompfx:screen_flash`, `tompfx:motion_blur`, `tompfx:bloom`, `tompfx:film_grain`, `tompfx:scanlines`, `tompfx:depth_of_field`, `tompfx:letterbox`, `tompfx:invert`, `tompfx:vortex`.
 
 Мировые оверлеи: `tompfx:block_tint`, `tompfx:block_outline`, `tompfx:entity_tint`, `tompfx:entity_outline`.
 
