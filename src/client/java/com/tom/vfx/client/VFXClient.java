@@ -38,10 +38,6 @@ public class VFXClient implements ClientModInitializer {
 			LOGGER.info("Received VFX packet: action={}, effect={}, duration={}, params={}", payload.action(), payload.effectId(), payload.durationTicks(), payload.params().keySet());
 			if (payload.action() == VFXAction.STOP) {
 				VFXEffectManager.get().stop(payload.effectId());
-			} else if (payload.action() == VFXAction.SET_TARGET) {
-				if (!payload.targets().isEmpty()) {
-					VFXEffectManager.get().setEntityTargets(payload.effectId(), payload.targets().get(0));
-				}
 			} else if (payload.action() == VFXAction.SET_PARAM || payload.action() == VFXAction.KEYFRAME) {
 				if (payload.params().size() != 1) {
 					LOGGER.warn("Ignoring VFX packet: {} expects exactly one parameter, got {}", payload.action(), payload.params().size());
@@ -56,7 +52,7 @@ public class VFXClient implements ClientModInitializer {
 					LOGGER.warn("VFX keyframe: effect '{}' is not running", payload.effectId());
 				}
 			} else {
-				VFXEffectManager.get().play(payload.effectId(), payload.durationTicks(), payload.params(), payload.easing(), payload.targets());
+				VFXEffectManager.get().play(payload.effectId(), payload.durationTicks(), payload.params(), payload.easing());
 			}
 		});
 	}

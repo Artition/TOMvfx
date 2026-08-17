@@ -17,7 +17,6 @@ public class VFXActiveEffect {
 	private final int fadeTicks;
 	private final boolean loop;
 	private final List<BlockPos> positions;
-	private List<String> entityTargets;
 	private float elapsed;
 	private float age;
 	private float fadeOutStart = Float.NEGATIVE_INFINITY;
@@ -48,14 +47,6 @@ public class VFXActiveEffect {
 	 * Creates a new effect instance with fade, looping and world positions.
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop, final List<BlockPos> positions) {
-		this(id, type, startTime, timeline, fadeTicks, loop, positions, List.of());
-	}
-
-	/**
-	 * Creates a new effect instance with fade, looping, world positions and entity targets
-	 * (UUID strings or player names, for the {@code entity_tint}/{@code entity_outline} overlays).
-	 */
-	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop, final List<BlockPos> positions, final List<String> entityTargets) {
 		this.id = id;
 		this.type = type;
 		this.startTime = startTime;
@@ -63,7 +54,6 @@ public class VFXActiveEffect {
 		this.fadeTicks = fadeTicks;
 		this.loop = loop;
 		this.positions = List.copyOf(positions);
-		this.entityTargets = List.copyOf(entityTargets);
 		this.elapsed = 0.0F;
 		this.age = 0.0F;
 	}
@@ -188,22 +178,5 @@ public class VFXActiveEffect {
 	 */
 	public List<BlockPos> getPositions() {
 		return this.positions;
-	}
-
-	/**
-	 * Entity targets of this effect (UUID strings or player names), resolved per frame
-	 * by the world overlay renderer.
-	 */
-	public List<String> getEntityTargets() {
-		return this.entityTargets;
-	}
-
-	/**
-	 * Live-retargets this effect to another entity (UUID string or player name).
-	 *
-	 * @param target the new entity target
-	 */
-	public void setEntityTarget(final String target) {
-		this.entityTargets = List.of(target);
 	}
 }

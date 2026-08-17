@@ -10,8 +10,7 @@ public enum VFXAction {
 	PLAY(0),
 	STOP(1),
 	SET_PARAM(2),
-	KEYFRAME(3),
-	SET_TARGET(4);
+	KEYFRAME(3);
 
 	private final byte id;
 

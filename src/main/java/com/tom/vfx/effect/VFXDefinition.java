@@ -30,11 +30,7 @@ public class VFXDefinition {
 	private final int fadeTicks;
 	private final List<ChildEffect> children;
 	private final List<BlockPos> positions;
-	private final List<String> entityTargets;
 	private final @Nullable Identifier sound;
-
-	/** Safety cap for the entity target list (datapack input, see AGENTS.md). */
-	private static final int MAX_ENTITY_TARGETS = 16;
 
 	private VFXDefinition(
 		final Identifier id,
@@ -47,7 +43,6 @@ public class VFXDefinition {
 		final int fadeTicks,
 		final List<ChildEffect> children,
 		final List<BlockPos> positions,
-		final List<String> entityTargets,
 		final @Nullable Identifier sound
 	) {
 		this.id = id;
@@ -60,7 +55,6 @@ public class VFXDefinition {
 		this.fadeTicks = fadeTicks;
 		this.children = List.copyOf(children);
 		this.positions = List.copyOf(positions);
-		this.entityTargets = List.copyOf(entityTargets);
 		this.sound = sound;
 	}
 
@@ -74,7 +68,7 @@ public class VFXDefinition {
 		final EasingType defaultEasing,
 		final Map<String, ParamSpec> params
 	) {
-		return create(id, type, defaultDuration, defaultEasing, params, false, false, 0, List.of(), List.of(), List.of(), null);
+		return create(id, type, defaultDuration, defaultEasing, params, false, false, 0, List.of(), List.of(), null);
 	}
 
 	/**
@@ -91,13 +85,11 @@ public class VFXDefinition {
 		final int fadeTicks,
 		final List<ChildEffect> children
 	) {
-		return create(id, type, defaultDuration, defaultEasing, params, persistent, loop, fadeTicks, children, List.of(), List.of(), null);
+		return create(id, type, defaultDuration, defaultEasing, params, persistent, loop, fadeTicks, children, List.of(), null);
 	}
 
 	/**
-	 * Creates a definition programmatically with all fields, including entity targets
-	 * (UUID strings or player names, used by the {@code entity_tint}/{@code entity_outline}
-	 * world overlays).
+	 * Creates a definition programmatically with all fields.
 	 */
 	public static VFXDefinition create(
 		final Identifier id,
@@ -110,10 +102,9 @@ public class VFXDefinition {
 		final int fadeTicks,
 		final List<ChildEffect> children,
 		final List<BlockPos> positions,
-		final List<String> entityTargets,
 		final @Nullable Identifier sound
 	) {
-		return new VFXDefinition(id, type, defaultDuration, defaultEasing, params, persistent, loop, fadeTicks, children, positions, entityTargets, sound);
+		return new VFXDefinition(id, type, defaultDuration, defaultEasing, params, persistent, loop, fadeTicks, children, positions, sound);
 	}
 
 	/**
@@ -152,23 +143,12 @@ public class VFXDefinition {
 
 		List<BlockPos> positions = parsePositions(json, params);
 
-		List<String> entityTargets = new ArrayList<>();
-		if (json.has("targets")) {
-			for (JsonElement entry : GsonHelper.getAsJsonArray(json, "targets")) {
-				String target = GsonHelper.convertToString(entry, "target");
-				if (entityTargets.size() >= MAX_ENTITY_TARGETS) {
-					throw new IllegalArgumentException("Too many entity targets (max " + MAX_ENTITY_TARGETS + "): " + id);
-				}
-				entityTargets.add(target);
-			}
-		}
-
 		Identifier sound = null;
 		if (json.has("sound") && !json.get("sound").isJsonNull()) {
 			sound = Identifier.parse(GsonHelper.getAsString(json, "sound"));
 		}
 
-		return new VFXDefinition(id, type, duration, easing, params, persistent, loop, fadeTicks, children, positions, entityTargets, sound);
+		return new VFXDefinition(id, type, duration, easing, params, persistent, loop, fadeTicks, children, positions, sound);
 	}
 
 	private static List<BlockPos> parsePositions(final JsonObject json, final Map<String, ParamSpec> params) {
@@ -396,14 +376,6 @@ public class VFXDefinition {
 	 */
 	public List<BlockPos> getPositions() {
 		return this.positions;
-	}
-
-	/**
-	 * Entity targets of this effect (UUID strings or player names), used by the
-	 * {@code entity_tint}/{@code entity_outline} world overlays.
-	 */
-	public List<String> getEntityTargets() {
-		return this.entityTargets;
 	}
 
 	/**

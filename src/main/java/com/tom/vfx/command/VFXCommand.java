@@ -13,7 +13,6 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.tom.vfx.api.VFXAPI;
 import com.tom.vfx.effect.EasingType;
 import com.tom.vfx.effect.VFXDefinition;
-import com.tom.vfx.effect.VFXEffectType;
 import com.tom.vfx.resource.VFXDefinitionManager;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,8 +30,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
 
 /**
  * {@code /vfx play <effect> [<targets>]} triggers a VFX effect,
@@ -41,9 +38,6 @@ import net.minecraft.world.phys.HitResult;
 public final class VFXCommand {
 	private static final DynamicCommandExceptionType ERROR_UNKNOWN_EFFECT = new DynamicCommandExceptionType(
 		id -> Component.translatable("commands.tompfx.unknown_effect", String.valueOf(id))
-	);
-	private static final DynamicCommandExceptionType ERROR_BAD_PARAM = new DynamicCommandExceptionType(
-		pair -> Component.translatable("commands.tompfx.bad_param", pair)
 	);
 
 	private VFXCommand() {
@@ -200,22 +194,10 @@ public final class VFXCommand {
 	private static int setParams(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
 		final Identifier effectId = IdentifierArgument.getId(context, "effect");
 		@SuppressWarnings("unchecked")
-		final Map<String, String> params = context.getArgument("params", Map.class);
-		for (final Map.Entry<String, String> entry : params.entrySet()) {
-			if ("target".equals(entry.getKey())) {
-				for (final ServerPlayer player : targets) {
-					VFXAPI.sendSetTarget(player, effectId, entry.getValue());
-				}
-				continue;
-			}
-			final float value;
-			try {
-				value = Float.parseFloat(entry.getValue());
-			} catch (NumberFormatException e) {
-				throw ERROR_BAD_PARAM.create(entry.getKey() + ":" + entry.getValue());
-			}
+		final Map<String, Float> params = context.getArgument("params", Map.class);
+		for (final Map.Entry<String, Float> entry : params.entrySet()) {
 			for (final ServerPlayer player : targets) {
-				VFXAPI.sendSetParam(player, effectId, entry.getKey(), value);
+				VFXAPI.sendSetParam(player, effectId, entry.getKey(), entry.getValue());
 			}
 		}
 		context.getSource()
@@ -288,23 +270,15 @@ public final class VFXCommand {
 	 * {@code ]} after a value, {@code ,} / {@code }} after a closed group. Suggestions are
 	 * anchored at the current segment (via {@code createOffset}) so Brigadier filters them
 	 * against the segment being typed, not the whole argument text.
-	 *
-	 * <p>For {@code entity_tint}/{@code entity_outline} effects, a {@code target:} name is
-	 * included, and when its value is being typed the UUID of the entity under the
-	 * player's crosshair is suggested.</p>
 	 */
 	private static CompletableFuture<Suggestions> suggestParamMap(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
-		java.util.Set<String> params = java.util.Set.of();
-		boolean isEntity = false;
+		java.util.Set<String> params;
 		try {
 			final Identifier effectId = context.getArgument("effect", Identifier.class);
 			final VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
-			if (definition != null) {
-				params = definition.getParams().keySet();
-				final VFXEffectType type = definition.getType();
-				isEntity = type == VFXEffectType.ENTITY_TINT || type == VFXEffectType.ENTITY_OUTLINE;
-			}
-		} catch (final IllegalArgumentException ignored) {
+			params = definition != null ? definition.getParams().keySet() : java.util.Set.of();
+		} catch (IllegalArgumentException ignored) {
+			params = java.util.Set.of();
 		}
 
 		final String remaining = builder.getRemaining();
@@ -331,32 +305,15 @@ public final class VFXCommand {
 			// itself), so the typed name prefix filters the suggestions.
 			final int anchor = builder.getStart() + 1 + (content.length() - segment.length()) + 1;
 			final SuggestionsBuilder atName = builder.createOffset(anchor);
-			final List<String> names = new ArrayList<>(params.size() + (isEntity ? 1 : 0));
+			final List<String> names = new ArrayList<>(params.size());
 			for (final String param : params) {
 				names.add(param + ":");
 			}
-			if (isEntity) {
-				names.add("target:");
-			}
 			return SharedSuggestionProvider.suggest(names, atName);
 		}
-		final String namePart = segment.substring(1, colon);
 		final String valuePart = segment.substring(colon + 1);
 		if (valuePart.endsWith("]")) {
 			return SharedSuggestionProvider.suggest(List.of(",", "}"), atEnd);
-		}
-		// When typing the value of "target", suggest the UUID of the entity under the
-		// player's crosshair (64-block raycast).
-		if ("target".equals(namePart) && valuePart.isEmpty()) {
-			try {
-				final ServerPlayer player = context.getSource().getPlayerOrException();
-				final HitResult hit = player.pick(64.0, 1.0F, false);
-				if (hit.getType() == HitResult.Type.ENTITY && hit instanceof final EntityHitResult ehr) {
-					return SharedSuggestionProvider.suggest(List.of(ehr.getEntity().getStringUUID()), atEnd);
-				}
-			} catch (CommandSyntaxException ignored) {
-			}
-			return builder.buildFuture();
 		}
 		if (valuePart.isEmpty()) {
 			return builder.buildFuture();
