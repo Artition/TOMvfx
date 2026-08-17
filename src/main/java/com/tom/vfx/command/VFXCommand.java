@@ -91,8 +91,8 @@ public final class VFXCommand {
 							Commands.argument("effect", IdentifierArgument.id())
 								.suggests(VFXCommand::suggestEffects)
 								.then(
-									Commands.argument("params", new ParamMapArgument())
-										.suggests(VFXCommand::suggestParamMap)
+									Commands.argument("params", StringArgumentType.string())
+										.suggests(VFXCommand::suggestParamList)
 										.executes(context2 -> setParams(context2, List.of(requirePlayer(context2))))
 										.then(
 											Commands.argument("targets", EntityArgument.players())
@@ -193,10 +193,9 @@ public final class VFXCommand {
 
 	private static int setParams(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
 		final Identifier effectId = IdentifierArgument.getId(context, "effect");
-		@SuppressWarnings("unchecked")
-		final Map<String, Float> params = context.getArgument("params", Map.class);
-		for (final ServerPlayer player : targets) {
-			for (final Map.Entry<String, Float> entry : params.entrySet()) {
+		final Map<String, Float> params = ParamListParser.parse(StringArgumentType.getString(context, "params"));
+		for (final Map.Entry<String, Float> entry : params.entrySet()) {
+			for (final ServerPlayer player : targets) {
 				VFXAPI.sendSetParam(player, effectId, entry.getKey(), entry.getValue());
 			}
 		}
@@ -265,11 +264,11 @@ public final class VFXCommand {
 	}
 
 	/**
-	 * Suggests the next token of the {@code {[name:value],...}} parameter-map argument:
-	 * {@code {} after nothing, {@code [} at group start, {@code name:} inside a group,
-	 * {@code ]} after a value, {@code ,} / {@code }} after a closed group.
+	 * Suggests completions inside the quoted {@code "name:value[,name:value]"} string of
+	 * {@code /vfx set}: opening quotes with the first {@code name:} pair, or the next
+	 * {@code name:} pair after a comma. Values are typed by hand.
 	 */
-	private static CompletableFuture<Suggestions> suggestParamMap(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
+	private static CompletableFuture<Suggestions> suggestParamList(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
 		java.util.Set<String> params;
 		try {
 			final Identifier effectId = context.getArgument("effect", Identifier.class);
@@ -279,37 +278,22 @@ public final class VFXCommand {
 			params = java.util.Set.of();
 		}
 
-		final String remaining = builder.getRemaining().toLowerCase(java.util.Locale.ROOT);
-		if (remaining.isEmpty()) {
-			return SharedSuggestionProvider.suggest(List.of("{"), builder);
-		}
-		if (!remaining.startsWith("{")) {
+		// The suggestion text is matched against the raw input, quotes included.
+		final String remaining = builder.getRemaining();
+		final boolean opened = remaining.startsWith("\"");
+		final String content = opened ? remaining.substring(1) : remaining;
+		// Only the pair after the last comma is still being typed.
+		final String segment = content.substring(content.lastIndexOf(',') + 1);
+		if (segment.indexOf(':') >= 0) {
+			// A value is being typed — nothing to complete.
 			return builder.buildFuture();
 		}
-		// Only the group after the last comma is still being typed.
-		final String segment = remaining.substring(remaining.lastIndexOf(',') + 1);
-		if (segment.isEmpty()) {
-			return SharedSuggestionProvider.suggest(List.of("["), builder);
+		final String prefix = opened ? "\"" : "";
+		final List<String> names = new ArrayList<>(params.size());
+		for (final String param : params) {
+			names.add(prefix + param + ":");
 		}
-		final int colon = segment.indexOf(':');
-		if (colon < 0) {
-			if (!segment.startsWith("[")) {
-				return builder.buildFuture();
-			}
-			final List<String> names = new ArrayList<>(params.size());
-			for (final String param : params) {
-				names.add(param + ":");
-			}
-			return SharedSuggestionProvider.suggest(names, builder);
-		}
-		final String valuePart = segment.substring(colon + 1);
-		if (valuePart.endsWith("]")) {
-			return SharedSuggestionProvider.suggest(List.of(",", "}"), builder);
-		}
-		if (valuePart.isEmpty()) {
-			return builder.buildFuture();
-		}
-		return SharedSuggestionProvider.suggest(List.of("]"), builder);
+		return SharedSuggestionProvider.suggest(names, builder);
 	}
 
 	private static ServerPlayer requirePlayer(final CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
