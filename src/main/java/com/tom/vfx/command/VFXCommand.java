@@ -267,8 +267,9 @@ public final class VFXCommand {
 	/**
 	 * Suggests the next token of the {@code {[name:value],...}} argument, walking the syntax:
 	 * {@code {} after nothing, {@code [} at group start, {@code name:} inside a group,
-	 * {@code ]} after a value, {@code ,} / {@code }} after a closed group. The lenient
-	 * parser keeps the argument parsing mid-typing, so this fires on every keystroke.
+	 * {@code ]} after a value, {@code ,} / {@code }} after a closed group. Suggestions are
+	 * anchored at the current segment (via {@code createOffset}) so Brigadier filters them
+	 * against the segment being typed, not the whole argument text.
 	 */
 	private static CompletableFuture<Suggestions> suggestParamMap(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
 		java.util.Set<String> params;
@@ -287,30 +288,34 @@ public final class VFXCommand {
 		if (!remaining.startsWith("{")) {
 			return builder.buildFuture();
 		}
+		// Anchor for tokens appended after everything typed so far.
+		final SuggestionsBuilder atEnd = builder.createOffset(builder.getStart() + remaining.length());
 		// Only the group after the last comma is still being typed.
 		final String segment = remaining.substring(remaining.lastIndexOf(',') + 1);
 		if (segment.isEmpty()) {
-			return SharedSuggestionProvider.suggest(List.of("["), builder);
+			return SharedSuggestionProvider.suggest(List.of("["), atEnd);
 		}
 		if (!segment.startsWith("[")) {
 			return builder.buildFuture();
 		}
 		final int colon = segment.indexOf(':');
 		if (colon < 0) {
+			// Anchor right after the '[' so the typed name prefix filters the suggestions.
+			final SuggestionsBuilder atName = builder.createOffset(builder.getStart() + remaining.length() - segment.length() + 1);
 			final List<String> names = new ArrayList<>(params.size());
 			for (final String param : params) {
 				names.add(param + ":");
 			}
-			return SharedSuggestionProvider.suggest(names, builder);
+			return SharedSuggestionProvider.suggest(names, atName);
 		}
 		final String valuePart = segment.substring(colon + 1);
 		if (valuePart.endsWith("]")) {
-			return SharedSuggestionProvider.suggest(List.of(",", "}"), builder);
+			return SharedSuggestionProvider.suggest(List.of(",", "}"), atEnd);
 		}
 		if (valuePart.isEmpty()) {
 			return builder.buildFuture();
 		}
-		return SharedSuggestionProvider.suggest(List.of("]"), builder);
+		return SharedSuggestionProvider.suggest(List.of("]"), atEnd);
 	}
 
 	private static ServerPlayer requirePlayer(final CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
