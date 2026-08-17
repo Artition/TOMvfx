@@ -7,6 +7,9 @@ import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.tom.vfx.api.VFXAPI;
 import com.tom.vfx.effect.EasingType;
 import com.tom.vfx.resource.VFXDefinitionManager;
@@ -80,6 +83,54 @@ public final class VFXCommand {
 								)
 						)
 				)
+				.then(
+					Commands.literal("set")
+						.then(
+							Commands.argument("effect", IdentifierArgument.id())
+								.suggests(VFXCommand::suggestEffects)
+								.then(
+									Commands.argument("param", StringArgumentType.word())
+										.then(
+											Commands.argument("value", FloatArgumentType.floatArg())
+												.executes(context2 -> setParam(context2, List.of(requirePlayer(context2))))
+												.then(
+													Commands.argument("targets", EntityArgument.players())
+														.executes(context2 -> setParam(context2, EntityArgument.getPlayers(context2, "targets")))
+												)
+										)
+								)
+						)
+				)
+				.then(
+					Commands.literal("key")
+						.then(
+							Commands.argument("effect", IdentifierArgument.id())
+								.suggests(VFXCommand::suggestEffects)
+								.then(
+									Commands.argument("param", StringArgumentType.word())
+										.then(
+											Commands.argument("time", IntegerArgumentType.integer(0))
+												.then(
+													Commands.argument("value", FloatArgumentType.floatArg())
+														.executes(context2 -> keyframe(context2, EasingType.LINEAR, List.of(requirePlayer(context2))))
+														.then(
+															Commands.argument("easing", StringArgumentType.word())
+																.suggests(VFXCommand::suggestEasings)
+																.executes(context2 -> keyframe(context2, currentEasing(context2), List.of(requirePlayer(context2))))
+																.then(
+																	Commands.argument("targets", EntityArgument.players())
+																		.executes(context2 -> keyframe(context2, currentEasing(context2), EntityArgument.getPlayers(context2, "targets")))
+																)
+														)
+														.then(
+															Commands.argument("targets", EntityArgument.players())
+																.executes(context2 -> keyframe(context2, EasingType.LINEAR, EntityArgument.getPlayers(context2, "targets")))
+														)
+												)
+										)
+								)
+						)
+				)
 				.then(Commands.literal("list").executes(VFXCommand::list))
 		);
 	}
@@ -139,6 +190,41 @@ public final class VFXCommand {
 		return targets.size();
 	}
 
+	private static int setParam(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
+		Identifier effectId = IdentifierArgument.getId(context, "effect");
+		String param = StringArgumentType.getString(context, "param");
+		float value = FloatArgumentType.getFloat(context, "value");
+		for (ServerPlayer player : targets) {
+			VFXAPI.sendSetParam(player, effectId, param, value);
+		}
+		context.getSource()
+			.sendSuccess(
+				() -> Component.translatable("commands.tompfx.set", param, effectId.toString(), value, targets.size()),
+				false
+			);
+		return targets.size();
+	}
+
+	private static int keyframe(final CommandContext<CommandSourceStack> context, final EasingType easing, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
+		Identifier effectId = IdentifierArgument.getId(context, "effect");
+		String param = StringArgumentType.getString(context, "param");
+		int time = IntegerArgumentType.getInteger(context, "time");
+		float value = FloatArgumentType.getFloat(context, "value");
+		for (ServerPlayer player : targets) {
+			VFXAPI.sendKeyframe(player, effectId, param, time, value, easing);
+		}
+		context.getSource()
+			.sendSuccess(
+				() -> Component.translatable("commands.tompfx.key", param, effectId.toString(), time, value, easing.name(), targets.size()),
+				false
+			);
+		return targets.size();
+	}
+
+	private static EasingType currentEasing(final CommandContext<CommandSourceStack> context) {
+		return EasingType.fromString(StringArgumentType.getString(context, "easing"));
+	}
+
 	private static int list(final CommandContext<CommandSourceStack> context) {
 		VFXDefinitionManager definitions = VFXDefinitionManager.get();
 		context.getSource()
@@ -152,6 +238,10 @@ public final class VFXCommand {
 
 	private static CompletableFuture<Suggestions> suggestEffects(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
 		return SharedSuggestionProvider.suggestResource(VFXDefinitionManager.get().getDefinitions().keySet().stream(), builder);
+	}
+
+	private static CompletableFuture<Suggestions> suggestEasings(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
+		return SharedSuggestionProvider.suggest(java.util.Arrays.stream(EasingType.values()).map(e -> e.name().toLowerCase(java.util.Locale.ROOT)), builder);
 	}
 
 	private static ServerPlayer requirePlayer(final CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
