@@ -290,8 +290,9 @@ public final class VFXCommand {
 		}
 		// Anchor for tokens appended after everything typed so far.
 		final SuggestionsBuilder atEnd = builder.createOffset(builder.getStart() + remaining.length());
-		// Only the group after the last comma is still being typed.
-		final String segment = remaining.substring(remaining.lastIndexOf(',') + 1);
+		// Strip the opening brace: only the group after the last comma is being typed.
+		final String content = remaining.substring(1);
+		final String segment = content.substring(content.lastIndexOf(',') + 1);
 		if (segment.isEmpty()) {
 			return SharedSuggestionProvider.suggest(List.of("["), atEnd);
 		}
@@ -300,8 +301,10 @@ public final class VFXCommand {
 		}
 		final int colon = segment.indexOf(':');
 		if (colon < 0) {
-			// Anchor right after the '[' so the typed name prefix filters the suggestions.
-			final SuggestionsBuilder atName = builder.createOffset(builder.getStart() + remaining.length() - segment.length() + 1);
+			// Anchor right after the '[' (opening brace + previous groups + the bracket
+			// itself), so the typed name prefix filters the suggestions.
+			final int anchor = builder.getStart() + 1 + (content.length() - segment.length()) + 1;
+			final SuggestionsBuilder atName = builder.createOffset(anchor);
 			final List<String> names = new ArrayList<>(params.size());
 			for (final String param : params) {
 				names.add(param + ":");
