@@ -17,7 +17,7 @@ import net.minecraft.resources.Identifier;
  */
 public record VFXTriggerPayload(byte protocolVersion, Identifier effectId, VFXAction action, int durationTicks, Map<String, Float> params, EasingType easing)
 	implements CustomPacketPayload {
-	public static final byte PROTOCOL_VERSION = 1;
+	public static final byte PROTOCOL_VERSION = 2;
 	public static final Type<VFXTriggerPayload> TYPE = new Type<>(Identifier.fromNamespaceAndPath("tompfx", "vfx_trigger"));
 
 	public static final StreamCodec<ByteBuf, EasingType> EASING_CODEC = ByteBufCodecs.STRING_UTF8.map(EasingType::fromString, EasingType::name);
@@ -51,6 +51,22 @@ public record VFXTriggerPayload(byte protocolVersion, Identifier effectId, VFXAc
 	 */
 	public static VFXTriggerPayload stop(final Identifier effectId) {
 		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.STOP, 0, Map.of(), EasingType.LINEAR);
+	}
+
+	/**
+	 * Creates a live parameter-override payload for a running effect ({@code params} carries
+	 * a single {@code name -> value} entry).
+	 */
+	public static VFXTriggerPayload setParam(final Identifier effectId, final String param, final float value) {
+		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.SET_PARAM, 0, Map.of(param, value), EasingType.LINEAR);
+	}
+
+	/**
+	 * Creates a live keyframe payload for a running effect: {@code time} is carried in
+	 * {@code durationTicks}, the value in {@code params} and the outgoing easing in {@code easing}.
+	 */
+	public static VFXTriggerPayload keyframe(final Identifier effectId, final String param, final int time, final float value, final EasingType easing) {
+		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.KEYFRAME, time, Map.of(param, value), easing);
 	}
 
 	@Override

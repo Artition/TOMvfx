@@ -1,18 +1,28 @@
 package com.tom.vfx.effect;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * A collection of named {@link AnimatedValue}s that together drive a single visual effect.
  * The timeline has a total duration in ticks; all values are advanced together with
  * {@link #update(float)} and queried by name with {@link #getValue(String, float)}.
+ *
+ * <p>Live overrides (added at runtime, e.g. via {@code /vfx set}) are stored separately and
+ * win over both world bindings and the definition values.
  */
 public class VFXTimeline {
+	/** Safety cap for runtime overrides (network/command input, see AGENTS.md). */
+	private static final int MAX_OVERRIDES = 32;
+
 	private final float duration;
 	private final Map<String, AnimatedValue> values;
 	private final Map<String, BoundParam> bindings;
+	private final Map<String, AnimatedValue> overrides = new LinkedHashMap<>();
 	private float elapsed;
 
 	/**
@@ -49,16 +59,23 @@ public class VFXTimeline {
 		for (AnimatedValue value : this.values.values()) {
 			value.update(this.elapsed);
 		}
+		for (AnimatedValue value : this.overrides.values()) {
+			value.update(this.elapsed);
+		}
 	}
 
 	/**
-	 * Reads the current value of the given parameter. World-bound parameters are evaluated
-	 * against the camera state fed by the client.
+	 * Reads the current value of the given parameter. Runtime overrides win over world-bound
+	 * parameters, which in turn are evaluated against the camera state fed by the client.
 	 *
 	 * @param name     parameter name
 	 * @param fallback value returned when the parameter is not present
 	 */
 	public float getValue(final String name, final float fallback) {
+		AnimatedValue override = this.overrides.get(name);
+		if (override != null) {
+			return override.get();
+		}
 		BoundParam binding = this.bindings.get(name);
 		if (binding != null) {
 			return VFXWorldBindings.evaluate(binding, fallback);
@@ -95,5 +112,53 @@ public class VFXTimeline {
 
 	public Map<String, BoundParam> getBindings() {
 		return this.bindings;
+	}
+
+	/**
+	 * Live-overrides the parameter with a constant, winning over any binding or animation
+	 * from the definition (used by {@code /vfx set}).
+	 *
+	 * @param name  parameter name
+	 * @param value the new constant value
+	 */
+	public void setOverride(final String name, final float value) {
+		this.putOverride(name, AnimatedValue.constant(value));
+	}
+
+	/**
+	 * Adds or replaces a keyframe of the parameter on a live copy of its animation (used by
+	 * {@code /vfx key}). When the parameter has no animation yet, a step animation starting
+	 * at the keyframe is created.
+	 *
+	 * @param name    parameter name
+	 * @param time    keyframe time in ticks from the effect start
+	 * @param value   keyframe value
+	 * @param easing  easing curve towards the next keyframe
+	 */
+	public void setKeyframe(final String name, final float time, final float value, final EasingType easing) {
+		AnimatedValue base = this.overrides.get(name);
+		if (base == null) {
+			base = this.values.get(name);
+		}
+		List<Keyframe> frames = base != null ? new ArrayList<>(base.getKeyframes()) : new ArrayList<>();
+		frames.removeIf(frame -> Float.compare(frame.time(), time) == 0);
+		frames.add(new Keyframe(time, value, easing));
+		if (frames.size() < 2) {
+			// Single keyframe: hold the value before it (step function).
+			frames.add(new Keyframe(Float.MAX_VALUE, value));
+		}
+		this.putOverride(name, AnimatedValue.fromKeyframes(frames.toArray(new Keyframe[0])));
+	}
+
+	private void putOverride(final String name, final AnimatedValue value) {
+		if (this.overrides.size() >= MAX_OVERRIDES && !this.overrides.containsKey(name)) {
+			Iterator<String> it = this.overrides.keySet().iterator();
+			if (it.hasNext()) {
+				it.next();
+				it.remove();
+			}
+		}
+		this.overrides.put(name, value);
+		value.update(this.elapsed);
 	}
 }

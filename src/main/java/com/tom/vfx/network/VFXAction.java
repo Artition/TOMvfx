@@ -3,12 +3,14 @@ package com.tom.vfx.network;
 import java.util.Locale;
 
 /**
- * Action carried by a {@link VFXTriggerPayload}: either start playing an effect or stop all
- * running instances of it.
+ * Action carried by a {@link VFXTriggerPayload}: start playing an effect, stop all running
+ * instances of it, or live-adjust a parameter/keyframe of a running instance.
  */
 public enum VFXAction {
 	PLAY(0),
-	STOP(1);
+	STOP(1),
+	SET_PARAM(2),
+	KEYFRAME(3);
 
 	private final byte id;
 

@@ -176,6 +176,40 @@ public class VFXEffectManager {
 	}
 
 	/**
+	 * Live-overrides a parameter of every running instance of the effect, without restarting
+	 * its timeline (used by {@code /vfx set}).
+	 *
+	 * @return {@code true} when at least one running instance was found and updated
+	 */
+	public boolean setParam(final Identifier effectId, final String name, final float value) {
+		boolean applied = false;
+		for (VFXActiveEffect effect : this.active) {
+			if (effect.getId().equals(effectId)) {
+				effect.getTimeline().setOverride(name, value);
+				applied = true;
+			}
+		}
+		return applied;
+	}
+
+	/**
+	 * Adds or replaces a keyframe of a parameter on every running instance of the effect
+	 * (used by {@code /vfx key}).
+	 *
+	 * @return {@code true} when at least one running instance was found and updated
+	 */
+	public boolean setKeyframe(final Identifier effectId, final String name, final float time, final float value, final EasingType easing) {
+		boolean applied = false;
+		for (VFXActiveEffect effect : this.active) {
+			if (effect.getId().equals(effectId)) {
+				effect.getTimeline().setKeyframe(name, time, value, easing);
+				applied = true;
+			}
+		}
+		return applied;
+	}
+
+	/**
 	 * Stops all running effects (persistent ones fade out).
 	 */
 	public void stopAll() {

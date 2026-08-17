@@ -131,4 +131,33 @@ public final class VFXAPI {
 	public static void sendStop(final ServerPlayer player, final Identifier effectId) {
 		ServerPlayNetworking.send(player, VFXTriggerPayload.stop(effectId));
 	}
+
+	/**
+	 * Live-overrides a parameter of a running effect on the player's client, without
+	 * restarting its timeline. Ignored (with a client-side log warning) when the effect is
+	 * not currently running.
+	 *
+	 * @param player  the receiving player
+	 * @param effectId effect id
+	 * @param param   parameter name
+	 * @param value   the new constant value
+	 */
+	public static void sendSetParam(final ServerPlayer player, final Identifier effectId, final String param, final float value) {
+		ServerPlayNetworking.send(player, VFXTriggerPayload.setParam(effectId, param, value));
+	}
+
+	/**
+	 * Adds or replaces a keyframe of a parameter on a running effect on the player's client.
+	 * Ignored (with a client-side log warning) when the effect is not currently running.
+	 *
+	 * @param player  the receiving player
+	 * @param effectId effect id
+	 * @param param   parameter name
+	 * @param time    keyframe time in ticks from the effect start
+	 * @param value   keyframe value
+	 * @param easing  easing curve towards the next keyframe
+	 */
+	public static void sendKeyframe(final ServerPlayer player, final Identifier effectId, final String param, final int time, final float value, final EasingType easing) {
+		ServerPlayNetworking.send(player, VFXTriggerPayload.keyframe(effectId, param, time, value, easing));
+	}
 }
