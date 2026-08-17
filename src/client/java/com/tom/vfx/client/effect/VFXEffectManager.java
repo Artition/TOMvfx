@@ -138,7 +138,8 @@ public class VFXEffectManager {
 		}
 		List<String> entityTargets = !entityTargetsIn.isEmpty() ? entityTargetsIn : (definition != null ? definition.getEntityTargets() : List.of());
 		VFXActiveEffect effect = new VFXActiveEffect(effectId, type, this.clock, timeline, fadeTicks, loop, positions, entityTargets);
-		this.active.removeIf(e -> e.getId().equals(effectId));
+		// Same-id replays stack as independent instances (e.g. several dents at once);
+		// /vfx stop removes every instance of the id. MAX_ACTIVE_EFFECTS caps the total.
 		while (this.active.size() >= MAX_ACTIVE_EFFECTS) {
 			LOGGER.warn("Active VFX effect limit ({}) reached; removing oldest effect '{}'", MAX_ACTIVE_EFFECTS, this.active.get(0).getId());
 			this.active.remove(0);
