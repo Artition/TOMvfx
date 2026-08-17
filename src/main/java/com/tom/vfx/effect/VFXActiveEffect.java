@@ -17,7 +17,7 @@ public class VFXActiveEffect {
 	private final int fadeTicks;
 	private final boolean loop;
 	private final List<BlockPos> positions;
-	private final List<String> entityTargets;
+	private List<String> entityTargets;
 	private float elapsed;
 	private float age;
 	private float fadeOutStart = Float.NEGATIVE_INFINITY;
@@ -196,5 +196,14 @@ public class VFXActiveEffect {
 	 */
 	public List<String> getEntityTargets() {
 		return this.entityTargets;
+	}
+
+	/**
+	 * Live-retargets this effect to another entity (UUID string or player name).
+	 *
+	 * @param target the new entity target
+	 */
+	public void setEntityTarget(final String target) {
+		this.entityTargets = List.of(target);
 	}
 }

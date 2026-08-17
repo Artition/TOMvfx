@@ -160,4 +160,16 @@ public final class VFXAPI {
 	public static void sendKeyframe(final ServerPlayer player, final Identifier effectId, final String param, final int time, final float value, final EasingType easing) {
 		ServerPlayNetworking.send(player, VFXTriggerPayload.keyframe(effectId, param, time, value, easing));
 	}
+
+	/**
+	 * Live-retargets a running {@code entity_tint}/{@code entity_outline} effect to the given
+	 * entity (UUID string or player name). Starts nothing when the effect is not running.
+	 *
+	 * @param player   the receiving player
+	 * @param effectId effect id
+	 * @param target   entity UUID string or player name
+	 */
+	public static void sendSetTarget(final ServerPlayer player, final Identifier effectId, final String target) {
+		ServerPlayNetworking.send(player, VFXTriggerPayload.setTarget(effectId, target));
+	}
 }

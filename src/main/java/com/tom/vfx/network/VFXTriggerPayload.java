@@ -19,7 +19,7 @@ import net.minecraft.resources.Identifier;
  */
 public record VFXTriggerPayload(byte protocolVersion, Identifier effectId, VFXAction action, int durationTicks, Map<String, Float> params, EasingType easing, List<String> targets)
 	implements CustomPacketPayload {
-	public static final byte PROTOCOL_VERSION = 3;
+	public static final byte PROTOCOL_VERSION = 4;
 	public static final Type<VFXTriggerPayload> TYPE = new Type<>(Identifier.fromNamespaceAndPath("tompfx", "vfx_trigger"));
 
 	/** Safety cap for the entity target list (network input, see AGENTS.md). */
@@ -97,6 +97,14 @@ public record VFXTriggerPayload(byte protocolVersion, Identifier effectId, VFXAc
 	 */
 	public static VFXTriggerPayload keyframe(final Identifier effectId, final String param, final int time, final float value, final EasingType easing) {
 		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.KEYFRAME, time, Map.of(param, value), easing, List.of());
+	}
+
+	/**
+	 * Creates a live entity-target payload for a running {@code entity_tint}/
+	 * {@code entity_outline} effect: {@code targets} carries the single UUID/name.
+	 */
+	public static VFXTriggerPayload setTarget(final Identifier effectId, final String target) {
+		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.SET_TARGET, 0, Map.of(), EasingType.LINEAR, List.of(target));
 	}
 
 	@Override

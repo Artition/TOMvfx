@@ -228,6 +228,23 @@ public class VFXEffectManager {
 	}
 
 	/**
+	 * Live-retargets every running {@code entity_tint}/{@code entity_outline} instance of the
+	 * effect to another entity (UUID string or player name).
+	 *
+	 * @return {@code true} when at least one running instance was found and retargeted
+	 */
+	public boolean setEntityTargets(final Identifier effectId, final String target) {
+		boolean applied = false;
+		for (VFXActiveEffect effect : this.active) {
+			if (effect.getId().equals(effectId)) {
+				effect.setEntityTarget(target);
+				applied = true;
+			}
+		}
+		return applied;
+	}
+
+	/**
 	 * Stops all running effects (persistent ones fade out).
 	 */
 	public void stopAll() {
