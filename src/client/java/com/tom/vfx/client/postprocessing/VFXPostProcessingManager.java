@@ -184,8 +184,10 @@ public final class VFXPostProcessingManager {
 				try (GpuBuffer.MappedView view = encoder.mapBuffer(this.configUbo.currentBuffer(), false, true)) {
 					Std140Builder builder = Std140Builder.intoBuffer(view.data());
 					for (String param : this.configParams) {
-						float raw = effect.getParam(param, 0.0F);
-						float neutral = effect.getType().neutralValue(param);
+						// Reserved "time" parameter: the effect's unwrapped age in ticks (never
+						// faded), used by shaders that animate procedurally (grain, scanlines).
+						float raw = "time".equals(param) ? effect.getAge() : effect.getParam(param, 0.0F);
+						float neutral = "time".equals(param) ? Float.NaN : effect.getType().neutralValue(param);
 						builder.putFloat(Float.isNaN(neutral) ? raw : neutral + (raw - neutral) * weight);
 					}
 				}

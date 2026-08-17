@@ -31,6 +31,16 @@ public enum VFXEffectType {
 	SCREEN_FLASH("screen_flash"),
 	/** Directional blur driven by camera rotation speed. */
 	MOTION_BLUR("motion_blur"),
+	/** Single-pass glow around bright areas (threshold + soft halo). */
+	BLOOM("bloom"),
+	/** Animated film grain noise. */
+	FILM_GRAIN("film_grain"),
+	/** CRT-style horizontal scanlines that can drift over time. */
+	SCANLINES("scanlines"),
+	/** Screen-space "tilt-shift" depth of field: a sharp focus band that blurs away from it. */
+	DEPTH_OF_FIELD("depth_of_field"),
+	/** Cinematic black bars at the top and bottom of the screen. */
+	LETTERBOX("letterbox"),
 	/** Modifies the camera field of view. */
 	FOV_MODIFIER("fov_modifier"),
 	/** Camera shake driven by simplex noise. */
@@ -95,6 +105,11 @@ public enum VFXEffectType {
 		case VIGNETTE -> "intensity".equals(parameter) ? 0.0F : Float.NaN;
 		case SCREEN_FLASH -> "alpha".equals(parameter) ? 0.0F : Float.NaN;
 		case MOTION_BLUR -> "intensity".equals(parameter) ? 0.0F : Float.NaN;
+		case BLOOM -> "intensity".equals(parameter) ? 0.0F : Float.NaN;
+		case FILM_GRAIN -> "intensity".equals(parameter) ? 0.0F : Float.NaN;
+		case SCANLINES -> "intensity".equals(parameter) ? 0.0F : Float.NaN;
+		case DEPTH_OF_FIELD -> "intensity".equals(parameter) ? 0.0F : Float.NaN;
+		case LETTERBOX -> "height".equals(parameter) ? 0.0F : Float.NaN;
 		case FOV_MODIFIER -> "fov_delta".equals(parameter) ? 0.0F : Float.NaN;
 		default -> Float.NaN;
 		};

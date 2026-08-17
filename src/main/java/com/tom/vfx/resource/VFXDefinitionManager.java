@@ -171,6 +171,31 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 				false, false, 0, List.of(), List.of(), null
 			)
 		);
+		this.builtIns.put(
+			Identifier.fromNamespaceAndPath("tompfx", "bloom"),
+			builtIn("tompfx", "bloom", VFXEffectType.BLOOM, 40, EasingType.EASE_IN_OUT_CUBIC,
+				param("intensity", 0.6F, 0.0F), param("threshold", 0.7F), param("radius", 3.0F))
+		);
+		this.builtIns.put(
+			Identifier.fromNamespaceAndPath("tompfx", "film_grain"),
+			builtIn("tompfx", "film_grain", VFXEffectType.FILM_GRAIN, 40, EasingType.EASE_IN_OUT_CUBIC,
+				param("intensity", 0.08F, 0.0F), param("size", 2.0F))
+		);
+		this.builtIns.put(
+			Identifier.fromNamespaceAndPath("tompfx", "scanlines"),
+			builtIn("tompfx", "scanlines", VFXEffectType.SCANLINES, 40, EasingType.EASE_IN_OUT_CUBIC,
+				param("intensity", 0.3F, 0.0F), param("line_count", 3.0F), param("speed", 0.5F))
+		);
+		this.builtIns.put(
+			Identifier.fromNamespaceAndPath("tompfx", "depth_of_field"),
+			builtIn("tompfx", "depth_of_field", VFXEffectType.DEPTH_OF_FIELD, 40, EasingType.EASE_IN_OUT_CUBIC,
+				param("intensity", 0.5F, 0.0F), param("focus_center", 0.5F), param("focus_range", 0.15F))
+		);
+		this.builtIns.put(
+			Identifier.fromNamespaceAndPath("tompfx", "letterbox"),
+			builtIn("tompfx", "letterbox", VFXEffectType.LETTERBOX, 40, EasingType.EASE_IN_OUT_CUBIC,
+				param("height", 0.12F, 0.0F), param("color_r", 0.0F), param("color_g", 0.0F), param("color_b", 0.0F))
+		);
 		// Camera shake parameters (the shake itself is already enveloped by the shake manager).
 		this.builtIns.put(
 			Identifier.fromNamespaceAndPath("tompfx", "camera_shake"),
