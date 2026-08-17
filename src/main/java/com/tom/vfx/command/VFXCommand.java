@@ -252,11 +252,14 @@ public final class VFXCommand {
 	 * {@code effect} argument (definition params, or nothing when the id is unresolved).
 	 */
 	private static CompletableFuture<Suggestions> suggestParams(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
-		String raw = context.getArgument("effect", String.class);
-		Identifier effectId = Identifier.parse(raw);
-		VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
-		if (definition != null) {
-			return SharedSuggestionProvider.suggest(definition.getParams().keySet(), builder);
+		try {
+			Identifier effectId = context.getArgument("effect", Identifier.class);
+			VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
+			if (definition != null) {
+				return SharedSuggestionProvider.suggest(definition.getParams().keySet(), builder);
+			}
+		} catch (IllegalArgumentException ignored) {
+			// effect argument missing or not a valid id yet — nothing to suggest.
 		}
 		return builder.buildFuture();
 	}
