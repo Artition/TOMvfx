@@ -39,3 +39,6 @@ replay_*.log
 *.hprof
 *.jfr
 `n.worktrees/
+
+# local scratch (Claude bridge cannot delete files, only move them here)
+_to_delete/

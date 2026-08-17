@@ -2,7 +2,7 @@
 
 Клиентская библиотека VFX-эффектов для Minecraft 26.1 (Fabric). Пост-обработка экрана (ping-pong FBO), тряска камеры, мировые оверлеи (тинт/обводка блоков), ключевая анимация, привязки к миру и камере, датапаки, сетевые триггеры и публичный Java API.
 
-- Версия гайда: 8 (соответствует сборке от 17.08.2026, см. changelog внизу)
+- Версия гайда: 11 (см. [docs/CHANGELOG.md](CHANGELOG.md) для истории изменений)
 - Мод: `tompfx-1.0.0.jar`, требует Fabric API
 
 ---
@@ -212,43 +212,23 @@
 
 ## 7. Java API (для других модов)
 
+Кратко:
+
 ```java
-// Сервер: отправить эффект игроку по сети
-VFXAPI.sendEffect(serverPlayer, Identifier.of("tompfx_test", "combo"), Map.of(), null);
-
-// Сервер: остановить
-VFXAPI.sendStop(serverPlayer, effectId);
-
-// Клиент: локальный запуск (длительность 0 = по умолчанию определения, <0 = постоянный)
-VFXAPI.playEffect(effectId, 0, Map.of("radius", 8.0F), EasingType.EASE_OUT_CUBIC);
-VFXAPI.stopEffect(effectId);
-VFXAPI.stopAllEffects();
+VFXAPI.sendEffect(serverPlayer, effectId, Map.of(), null); // сервер → клиент
+VFXAPI.playEffect(effectId, 0, Map.of("radius", 8.0F), EasingType.EASE_OUT_CUBIC); // локально на клиенте
 ```
 
-Сетевой протокол: payload `tompfx:vfx_trigger` (версия протокола, действие PLAY/STOP, ID, длительность, параметры-числа, easing). Клиент игнорирует пакеты с несовпадающей версией протокола.
+Полный справочник (все методы `VFXAPI`, `VFXLocalDispatcher`, формат сетевого пакета `tompfx:vfx_trigger`) — **[docs/API.md](API.md)**.
 
 ---
 
 ## 8. Как это рендерится (для отладки)
 
-- Пост-обработка: хук перед `FogRenderer.endFrame` в `GameRenderer.render`; ping-pong `TextureTarget`, ortho-проекция, UBO `SamplerInfo` + `Config` через `MappableRingBuffer`; мультипроходность (blur = X+Y). Промежуточные проходы чередуются между `pingPong[0]` и `pingPong[1]`; последний проход пишет в `mainTarget`; одиночный проход рисует напрямую в `mainTarget`.
-- Мировые оверлеи: `LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN` (fabric-rendering-v1); тинт и контур используют собственный пайплайн `tompfx:world/block_overlay_*` на базе `LINES_SNIPPET`. Геометрия — квады запечённой модели блока (`ModelManager.getBlockStateModelSet()`), фолбэк — полный куб. Контур масштабируется от центра блока и рендерится с отключённым depth-тестом.
-- Часы эффектов: `DeltaTracker.getGameTimeDeltaTicks()` каждый кадр; пауза останавливает время.
-- Лимиты: до 64 активных эффектов и 128 запланированных дочерних эффектов; при превышении самые старые активные/новые запланированные удаляются с предупреждением в лог.
-- Лог: при старте эффекта пишется `Started VFX effect '<id>' for N ticks: param=..., ...` — первые значения параметров для диагностики.
+Пайплайн пост-обработки, мировые оверлеи, часы эффектов, лимиты нагрузки и отказоустойчивость — **[docs/ARCHITECTURE.md](ARCHITECTURE.md)**.
 
 ---
 
-## Changelog гайда
+## Changelog
 
-- **v11**: у `block_outline` два режима по булеву `shell` (по умолч. 0): `0` — выдавленные стенки, `1` — классическая расширенная оболочка задними гранями, обрезаемая самим блоком через depth-буфер.
-- **v10**: обводка переделана с масштабированной оболочки на «стенки» (каждая грань выдавливается наружу вдоль нормали на `width/2`) — контур физически не может закрывать сам блок ни в одном режиме; дефолт `through_blocks` для `block_outline` теперь `0` (перекрывается другими блоками), для `block_tint` — `1` (сквозной).
-- **v9**: `through_blocks` (0/1) у `block_tint`/`block_outline` — видимость сквозь блоки или с перекрытием; обводка больше не закрывает сам блок (оболочка рисуется только задними гранями и маскируется глубиной самого блока); `/vfx playat` снова корректно задаёт позицию (позиции из команды имеют приоритет над `positions` дефиниции); `sound` у `collection` теперь проигрывается (локально, только целевым игрокам).
-- **v8**: добавлены `vignette`, `screen_flash`, `motion_blur`, `fov_modifier`; возвращён `block_tint`; `block_outline` переписан как масштабированная оболочка модели с мультиблочностью (`positions`) и отключенным depth-тестом; сетевой протокол получил поле `action` (PLAY/STOP) и версию; датапаки поддерживают `sound` и `positions`; адаптивный blur; `distortion` поддерживает отрицательные значения `amount`; команда `/vfx playat` для быстрого тестирования block-эффектов по координатам.
-- **v7**: `block_tint` удалён; обводка переписана на собственный шейдер `tompfx:core/block_outline`.
-- **v6**: фикс тинта под Iris (собственный пайплайн вместо `debug_filled_box`); отказоустойчивость оверлеев (try/catch на эффект и сброс); привязка `look` (yaw/pitch/range) для привязки эффектов к повороту камеры.
-- **v5**: геометрия модели для тинта/обводки; обводка со depth-тестом (только снаружи); `loop`; гайд создан.
-- **v4**: `block_tint`, `block_outline`, `persistent`/`fade_ticks`, `collection`. *(историч.: тинт кубом)*
-- **v3**: привязки к миру (`bind`), `dent`.
-- **v2**: keyframes, двухпроходный blur, posterize, подсказки команд.
-- **v1**: базовые шейдерные эффекты, camera_shake, датапаки, команды, сеть.
+История изменений фич по версиям — **[docs/CHANGELOG.md](CHANGELOG.md)**.
