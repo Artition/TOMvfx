@@ -43,7 +43,7 @@ public final class VFXShaderPrograms {
 		registerPost(VFXEffectType.CHROMATIC_ABERRATION, "intensity", "radius");
 		registerPost(VFXEffectType.COLOR_GRADE, "saturation", "contrast", "brightness", "tint_r", "tint_g", "tint_b");
 		registerPost(VFXEffectType.DISTORTION, "amount", "radius");
-		registerPost(VFXEffectType.DENT, "strength", "radius", "center_x", "center_y");
+		registerPost(VFXEffectType.DENT, "strength", "radius", "center_x", "center_y", "line_mode", "x0", "y0", "x1", "y1");
 		registerPost(VFXEffectType.GRADIENT_MAP, "from_r", "from_g", "from_b", "to_r", "to_g", "to_b", "intensity");
 		registerPost(VFXEffectType.POSTERIZE, "strength");
 		registerMultiPass(VFXEffectType.BLUR, List.of("blur_x", "blur_y"), List.of(new String[]{"radius"}, new String[]{"radius"}));

@@ -13,7 +13,7 @@ public enum VFXEffectType {
 	COLOR_GRADE("color_grade"),
 	/** Barrel/pincushion distortion. */
 	DISTORTION("distortion"),
-	/** Localized radial "dent": pixels are pulled into (positive strength) or pushed out of (negative strength) a point. */
+	/** Localized "dent": pixels are pulled into (positive strength) or pushed out of (negative strength) a point, or along a segment when {@code line_mode} is set. */
 	DENT("dent"),
 	/** Maps the luminance to a two-colour gradient. */
 	GRADIENT_MAP("gradient_map"),
