@@ -4,11 +4,15 @@
 
 ## [Unreleased]
 ### Added
+- Новые пост-эффекты: `bloom`, `film_grain` (анимированное зерно), `scanlines` (CRT-полосы с дрейфом), `depth_of_field` (экранный tilt-shift), `letterbox` (кино-полосы). Зарезервированный параметр `time` в шейдерах получает возраст эффекта в тиках.
+- Оверлеи сущностей: `entity_tint` / `entity_outline` — заливка/контур хитбокса сущностей, цели задаются полем `targets` (UUID или ники, до 16), следуют за движущимися сущностями.
+- Бинды состояния игрока: `health`, `hunger`, `speed`, `light_level`, `time_of_day` (все 0..1, поддерживают `scale`/`invert`); `pos` больше не обязателен для непространственных биндов.
+- Tab-автодополнение имён параметров в `/vfx set` и `/vfx key`.
 - Режим линии у `dent`: параметры `line_mode` + `x0`/`y0`/`x1`/`y1` (UV 0..1) — вмятина вдоль отрезка; концы привязываются к миру через `bind: screen_x`/`screen_y`. Без `line_mode` — прежний режим одной точки (`center_x/y`).
 - Живая правка играющих эффектов командами: `/vfx set <эффект> <параметр> <значение>` (override параметра) и `/vfx key <эффект> <параметр> <время> <значение> [easing]` (добавить/заменить ключевой кадр) — без перезапуска таймлайна.
 - Java API: `VFXAPI.sendSetParam(...)` / `VFXAPI.sendKeyframe(...)`.
 ### Changed
-- **BREAKING**: `PROTOCOL_VERSION` 1 → 2 (новые действия `SET_PARAM`/`KEYFRAME` в `tompfx:vfx_trigger`); клиенты на протоколе 1 молча игнорируют пакеты новых серверов.
+- **BREAKING**: `PROTOCOL_VERSION` 1 → 3: действие `SET_PARAM`/`KEYFRAME` и список `targets` в `tompfx:vfx_trigger`; клиенты на старых версиях молча игнорируют пакеты.
 ### Fixed
 - `VFXDefinitionManager.prepare()` больше не прерывает загрузку всех VFX-определений из-за одного некорректного файла датапака — расширен `catch` до `IllegalArgumentException` (раньше туда попадали, например, неизвестный `type` или битый `positions`).
 ### Changed

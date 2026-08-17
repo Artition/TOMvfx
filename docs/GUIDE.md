@@ -40,6 +40,11 @@
 | `vignette` | `intensity` (0..1), `color_r/g/b` (0..1) | Затемнение/окраска краёв экрана |
 | `screen_flash` | `alpha` (0..1), `color_r/g/b` (0..1) | Полноэкранный цветной оверлей |
 | `motion_blur` | `intensity` (0..1), `yaw_delta`, `pitch_delta` | Направленный блюр от скорости поворота камеры |
+| `bloom` | `intensity` (0..1), `threshold` (0..1), `radius` (пиксели) | Свечение ярких участков экрана |
+| `film_grain` | `intensity` (0..1), `size` (px зерна) | Анимированное плёночное зерно |
+| `scanlines` | `intensity` (0..1), `line_count` (полос на 100px), `speed` (дрейф) | CRT-полосы, плывущие по экрану |
+| `depth_of_field` | `intensity` (0..1), `focus_center` (UV Y), `focus_range` (полуширина резкости) | Экранный tilt-shift: резкая полоса, размытие от неё |
+| `letterbox` | `height` (0..0.5), `color_r/g/b` | Кино-полосы сверху и снизу экрана |
 | `fov_modifier` | `fov_delta` (градусы) | Изменение поля зрения (FOV) игрока |
 
 ### 2.2 Мировые оверлеи (геометрия модели блока)
@@ -51,7 +56,16 @@
 
 Оба типа поддерживают список координат через поле `positions` (см. §3.1). Если список не задан, используется одна позиция из `params.pos_x/y/z` — она может быть константой, анимацией или привязкой к миру.
 
-### 2.3 Прочее
+### 2.3 Оверлеи сущностей
+
+| Тип | Параметры | Описание |
+|---|---|---|
+| `entity_tint` | `color_r/g/b` (0..1), `alpha` (0..1), `through_blocks` (0/1, по умолч. 1) | Полупрозрачный бокс поверх хитбокса сущности |
+| `entity_outline` | `color_r/g/b`, `alpha`, `width` (0..0.25), `through_blocks` (по умолч. 0) | Выдавленный контур бокса сущности (стенки наружу на `width/2`) |
+
+Цели задаются полем `targets` (см. §3.1): список UUID (любые сущности) или ников (игроки), до 16 штук. Цели пересчитываются каждый кадр — оверлей следует за движущейся сущностью.
+
+### 2.4 Прочее
 
 | Тип | Параметры | Описание |
 |---|---|---|
@@ -92,6 +106,7 @@
 | `effects` | массив | — | Дочерние эффекты для `collection` (см. §5) |
 | `sound` | строка | — | ID звукового события, проигрываемого при старте эффекта на клиенте |
 | `positions` | массив `[x,y,z]` | — | Список мировых координат для `block_tint`/`block_outline`. Если не задан — используется `params.pos_x/y/z`. |
+| `targets` | массив строк | — | Цели для `entity_tint`/`entity_outline`: UUID сущностей или ники игроков (до 16). |
 
 ### 3.2 Способы задать параметр
 
@@ -126,6 +141,23 @@
 | `look` | 0..1 (×scale) | 1, когда камера смотрит ровно в направлении `yaw`/`pitch` (в градусах), плавно к 0 при угловом отклонении `range` (по умолч. 90°). `invert: true` — наоборот. |
 | `camera_yaw_delta` | градусы/тик (×scale) | Изменение yaw камеры между кадрами |
 | `camera_pitch_delta` | градусы/тик (×scale) | Изменение pitch камеры между кадрами |
+| `health` | 0..1 (×scale) | Доля здоровья локального игрока (health / max). `invert: true` — растёт при падении HP. |
+| `hunger` | 0..1 (×scale) | Доля сытости (food / 20) |
+| `speed` | 0..1 (×scale) | Горизонтальная скорость (блоков/сек), нормализованная на `range` (по умолч. 5 = спринт) |
+| `light_level` | 0..1 (×scale) | Освещённость в позиции игрока (block/sky light / 15) |
+| `time_of_day` | 0..1 (×scale) | Доля суточного цикла (0 = рассвет) |
+
+Пример — красная виньетка при низком HP:
+
+```jsonc
+"intensity": { "bind": "health", "invert": true, "scale": 0.9 }
+```
+
+Пример — блюр при спринте:
+
+```jsonc
+"radius": { "bind": "speed", "range": 6, "scale": 8 }
+```
 
 Опции: `pos` (для screen/proximity), `yaw`, `pitch` (для look), `range`, `scale` (по умолч. 1), `invert`.
 
@@ -216,9 +248,9 @@
 
 ## 6. Встроенные эффекты (без датапака)
 
-Пост-обработка: `tompfx:chromatic_aberration`, `tompfx:color_grade`, `tompfx:distortion`, `tompfx:dent`, `tompfx:gradient_map`, `tompfx:posterize`, `tompfx:blur`, `tompfx:pixelate`, `tompfx:hue_isolation`, `tompfx:vignette`, `tompfx:screen_flash`, `tompfx:motion_blur`.
+Пост-обработка: `tompfx:chromatic_aberration`, `tompfx:color_grade`, `tompfx:distortion`, `tompfx:dent`, `tompfx:gradient_map`, `tompfx:posterize`, `tompfx:blur`, `tompfx:pixelate`, `tompfx:hue_isolation`, `tompfx:vignette`, `tompfx:screen_flash`, `tompfx:motion_blur`, `tompfx:bloom`, `tompfx:film_grain`, `tompfx:scanlines`, `tompfx:depth_of_field`, `tompfx:letterbox`.
 
-Мировые оверлеи: `tompfx:block_tint`, `tompfx:block_outline`.
+Мировые оверлеи: `tompfx:block_tint`, `tompfx:block_outline`, `tompfx:entity_tint`, `tompfx:entity_outline`.
 
 Прочее: `tompfx:camera_shake`, `tompfx:fov_modifier`.
 

@@ -26,7 +26,7 @@ tompfx — клиентская VFX-библиотека для Fabric-мода:
 - **`VFXPostProcessingManager`** (client) — прогоняет активные пост-эффекты через ping-pong `TextureTarget`ы каждый кадр.
 - **`VFXWorldOverlayRenderer`** (client) — рисует `block_tint`/`block_outline` поверх geometry блока через `LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN`.
 - **`CameraShakeManager`/`CameraMixin`** (client) — суммирует шум всех активных `camera_shake` в оффсет позиции/поворота, применяется миксином к `Camera`.
-- **`VFXWorldBindings`** (main, но данные только на клиенте) — вычисляет `bind`-параметры (`screen_x`, `proximity`, `look`, `camera_yaw_delta`/`pitch_delta`) относительно текущего кадра камеры.
+- **`VFXWorldBindings`** (main, но данные только на клиенте) — вычисляет `bind`-параметры (`screen_x`, `proximity`, `look`, `camera_yaw_delta`/`pitch_delta` и состояние игрока: `health`/`hunger`/`speed`/`light_level`/`time_of_day`) относительно текущего кадра камеры и снапшота игрока.
 
 ## Дата-флоу за один кадр
 
@@ -45,6 +45,8 @@ tompfx — клиентская VFX-библиотека для Fabric-мода:
 ## Мировые оверлеи
 
 `block_tint`/`block_outline` рисуются не шейдерным пассом, а геометрией: запечённые квады модели блока (`ModelManager.getBlockStateModelSet()`, фолбэк — полный куб), трансформированные в `PoseStack` относительно камеры. `block_outline` поддерживает два режима (`shell` параметр): `0` — стенки (каждая грань выдавливается наружу вдоль нормали, физически не может закрыть сам блок), `1` — классическая расширенная оболочка задними гранями с back-face culling, обрезаемая depth-буфером самого блока.
+
+`entity_tint`/`entity_outline` рисуют геометрию вокруг хитбокса сущности (заливка или выдавленные стенки). Цели (UUID/ники из поля `targets` определения или пакета) резолвятся каждый кадр линейным проходом по `ClientLevel.entitiesForRendering()` — клиентского индекса по UUID нет, а целей ≤16.
 
 ## Ограничения нагрузки (защита от спама эффектами)
 

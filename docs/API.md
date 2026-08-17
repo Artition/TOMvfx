@@ -67,6 +67,7 @@ VFXDefinitionManager.get().getDefinitions();      // Map<Identifier, VFXDefiniti
 | `durationTicks` | varint | 0 = дефолт определения, отрицательное = persistent (только для `PLAY`) |
 | `params` | `Map<String, Float>` | Переопределения констант, только числа |
 | `easing` | `EasingType` (строка) | |
+| `targets` | `List<String>` | Цели `entity_tint`/`entity_outline`: UUID или ники игроков (до 16); берутся из определения, если пусто |
 
 Бампай `PROTOCOL_VERSION` при любом breaking-изменении формата пакета — иначе старые клиенты будут молча игнорировать новые пакеты без единого предупреждения в лог.
 
