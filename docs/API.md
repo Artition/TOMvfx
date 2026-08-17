@@ -19,6 +19,13 @@ void sendEffect(ServerPlayer player, Identifier effectId, int durationTicks, Map
 
 // Останавливает эффект на клиенте игрока.
 void sendStop(ServerPlayer player, Identifier effectId);
+
+// Живой override параметра играющего эффекта (без перезапуска таймлайна).
+// Игнорируется клиентом с warning'ом в лог, если эффект сейчас не играет.
+void sendSetParam(ServerPlayer player, Identifier effectId, String param, float value);
+
+// Добавляет/заменяет ключевой кадр параметра играющего эффекта.
+void sendKeyframe(ServerPlayer player, Identifier effectId, String param, int timeTicks, float value, EasingType easing);
 ```
 
 ### Клиент (локально, без сети)
@@ -56,7 +63,7 @@ VFXDefinitionManager.get().getDefinitions();      // Map<Identifier, VFXDefiniti
 |---|---|---|
 | `protocolVersion` | byte | Текущее значение — `VFXTriggerPayload.PROTOCOL_VERSION`. Клиент **молча игнорирует** пакет при несовпадении версии (см. `VFXClient.handleTrigger`). |
 | `effectId` | `Identifier` | ID эффекта (встроенный или датапак) |
-| `action` | `VFXAction` (`PLAY`/`STOP`) | |
+| `action` | `VFXAction` (`PLAY`/`STOP`/`SET_PARAM`/`KEYFRAME`) | `SET_PARAM`/`KEYFRAME` применяются к **играющим** экземплярам эффекта: `params` несёт ровно одну запись `имя → значение`, для `KEYFRAME` время кадра — в `durationTicks`, easing сегмента — в `easing` |
 | `durationTicks` | varint | 0 = дефолт определения, отрицательное = persistent (только для `PLAY`) |
 | `params` | `Map<String, Float>` | Переопределения констант, только числа |
 | `easing` | `EasingType` (строка) | |
