@@ -14,6 +14,7 @@ import com.tom.vfx.api.VFXAPI;
 import com.tom.vfx.effect.EasingType;
 import com.tom.vfx.effect.VFXDefinition;
 import com.tom.vfx.resource.VFXDefinitionManager;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -90,15 +91,12 @@ public final class VFXCommand {
 							Commands.argument("effect", IdentifierArgument.id())
 								.suggests(VFXCommand::suggestEffects)
 								.then(
-									Commands.argument("param", StringArgumentType.word())
-										.suggests(VFXCommand::suggestParams)
+									Commands.argument("params", new ParamMapArgument())
+										.suggests(VFXCommand::suggestParamMap)
+										.executes(context2 -> setParams(context2, List.of(requirePlayer(context2))))
 										.then(
-											Commands.argument("value", FloatArgumentType.floatArg())
-												.executes(context2 -> setParam(context2, List.of(requirePlayer(context2))))
-												.then(
-													Commands.argument("targets", EntityArgument.players())
-														.executes(context2 -> setParam(context2, EntityArgument.getPlayers(context2, "targets")))
-												)
+											Commands.argument("targets", EntityArgument.players())
+												.executes(context2 -> setParams(context2, EntityArgument.getPlayers(context2, "targets")))
 										)
 								)
 						)
@@ -110,7 +108,7 @@ public final class VFXCommand {
 								.suggests(VFXCommand::suggestEffects)
 								.then(
 									Commands.argument("param", StringArgumentType.word())
-										.suggests(VFXCommand::suggestParams)
+										.suggests(VFXCommand::suggestEffectParams)
 										.then(
 											Commands.argument("time", IntegerArgumentType.integer(0))
 												.then(
@@ -193,16 +191,18 @@ public final class VFXCommand {
 		return targets.size();
 	}
 
-	private static int setParam(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
-		Identifier effectId = IdentifierArgument.getId(context, "effect");
-		String param = StringArgumentType.getString(context, "param");
-		float value = FloatArgumentType.getFloat(context, "value");
-		for (ServerPlayer player : targets) {
-			VFXAPI.sendSetParam(player, effectId, param, value);
+	private static int setParams(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
+		final Identifier effectId = IdentifierArgument.getId(context, "effect");
+		@SuppressWarnings("unchecked")
+		final Map<String, Float> params = context.getArgument("params", Map.class);
+		for (final ServerPlayer player : targets) {
+			for (final Map.Entry<String, Float> entry : params.entrySet()) {
+				VFXAPI.sendSetParam(player, effectId, entry.getKey(), entry.getValue());
+			}
 		}
 		context.getSource()
 			.sendSuccess(
-				() -> Component.translatable("commands.tompfx.set", param, effectId.toString(), value, targets.size()),
+				() -> Component.translatable("commands.tompfx.set", params.size(), effectId.toString(), targets.size()),
 				false
 			);
 		return targets.size();
@@ -251,10 +251,10 @@ public final class VFXCommand {
 	 * Suggests the parameter names of the effect referenced by the already-typed
 	 * {@code effect} argument (definition params, or nothing when the id is unresolved).
 	 */
-	private static CompletableFuture<Suggestions> suggestParams(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
+	private static CompletableFuture<Suggestions> suggestEffectParams(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
 		try {
-			Identifier effectId = context.getArgument("effect", Identifier.class);
-			VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
+			final Identifier effectId = context.getArgument("effect", Identifier.class);
+			final VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
 			if (definition != null) {
 				return SharedSuggestionProvider.suggest(definition.getParams().keySet(), builder);
 			}
@@ -262,6 +262,54 @@ public final class VFXCommand {
 			// effect argument missing or not a valid id yet — nothing to suggest.
 		}
 		return builder.buildFuture();
+	}
+
+	/**
+	 * Suggests the next token of the {@code {[name:value],...}} parameter-map argument:
+	 * {@code {} after nothing, {@code [} at group start, {@code name:} inside a group,
+	 * {@code ]} after a value, {@code ,} / {@code }} after a closed group.
+	 */
+	private static CompletableFuture<Suggestions> suggestParamMap(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
+		java.util.Set<String> params;
+		try {
+			final Identifier effectId = context.getArgument("effect", Identifier.class);
+			final VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
+			params = definition != null ? definition.getParams().keySet() : java.util.Set.of();
+		} catch (IllegalArgumentException ignored) {
+			params = java.util.Set.of();
+		}
+
+		final String remaining = builder.getRemaining().toLowerCase(java.util.Locale.ROOT);
+		if (remaining.isEmpty()) {
+			return SharedSuggestionProvider.suggest(List.of("{"), builder);
+		}
+		if (!remaining.startsWith("{")) {
+			return builder.buildFuture();
+		}
+		// Only the group after the last comma is still being typed.
+		final String segment = remaining.substring(remaining.lastIndexOf(',') + 1);
+		if (segment.isEmpty()) {
+			return SharedSuggestionProvider.suggest(List.of("["), builder);
+		}
+		final int colon = segment.indexOf(':');
+		if (colon < 0) {
+			if (!segment.startsWith("[")) {
+				return builder.buildFuture();
+			}
+			final List<String> names = new ArrayList<>(params.size());
+			for (final String param : params) {
+				names.add(param + ":");
+			}
+			return SharedSuggestionProvider.suggest(names, builder);
+		}
+		final String valuePart = segment.substring(colon + 1);
+		if (valuePart.endsWith("]")) {
+			return SharedSuggestionProvider.suggest(List.of(",", "}"), builder);
+		}
+		if (valuePart.isEmpty()) {
+			return builder.buildFuture();
+		}
+		return SharedSuggestionProvider.suggest(List.of("]"), builder);
 	}
 
 	private static ServerPlayer requirePlayer(final CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

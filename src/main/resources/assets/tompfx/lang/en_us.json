@@ -3,7 +3,8 @@
 	"commands.tompfx.played": "Playing VFX %s for %s player(s)",
 	"commands.tompfx.played_at": "Playing VFX %s at [%s, %s, %s] for %s player(s)",
 	"commands.tompfx.stopped": "Stopped VFX %s for %s player(s)",
-	"commands.tompfx.set": "Set %s of VFX %s to %s for %s player(s)",
+	"commands.tompfx.set": "Set %s parameter(s) of VFX %s for %s player(s)",
+	"commands.tompfx.too_many_params": "Too many parameters in one command (max %s)",
 	"commands.tompfx.key": "Keyframed %s of VFX %s at t=%s to %s (easing %s) for %s player(s)",
 	"commands.tompfx.list_count": "%s VFX definition(s) loaded"
 }
