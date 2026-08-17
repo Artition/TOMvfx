@@ -66,7 +66,7 @@ public class VFXEffectManager {
 				return false;
 			});
 			for (ScheduledPlay play : due) {
-				this.play(play.effectId(), play.durationTicks(), play.params(), play.easing(), play.depth());
+				this.play(play.effectId(), play.durationTicks(), play.params(), play.easing(), List.of(), play.depth());
 			}
 		}
 		for (VFXActiveEffect effect : this.active) {
@@ -83,10 +83,18 @@ public class VFXEffectManager {
 	 * @param easing        easing curve (may be null for the definition default)
 	 */
 	public void play(final Identifier effectId, final int durationTicks, final Map<String, Float> params, final EasingType easing) {
-		this.play(effectId, durationTicks, params, easing, 0);
+		this.play(effectId, durationTicks, params, easing, List.of(), 0);
 	}
 
-	private void play(final Identifier effectId, final int durationTicks, final Map<String, Float> params, final EasingType easing, final int depth) {
+	/**
+	 * Starts an effect with explicit entity targets (UUID strings or player names) that
+	 * override the definition's {@code targets} list.
+	 */
+	public void play(final Identifier effectId, final int durationTicks, final Map<String, Float> params, final EasingType easing, final List<String> entityTargets) {
+		this.play(effectId, durationTicks, params, easing, entityTargets, 0);
+	}
+
+	private void play(final Identifier effectId, final int durationTicks, final Map<String, Float> params, final EasingType easing, final List<String> entityTargetsIn, final int depth) {
 		VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
 		VFXEffectType type = definition != null ? definition.getType() : VFXEffectType.fromString(effectId.getPath());
 		if (type == null) {
@@ -104,8 +112,7 @@ public class VFXEffectManager {
 				LOGGER.warn("Scheduled VFX effect limit ({}) reached; dropping remaining collection children", MAX_SCHEDULED_EFFECTS);
 				break;
 			}
-			this.scheduled.add(new ScheduledPlay(this.clock + child.delay(), child.effect(), child.duration(), child.params(), child.easing(), depth + 1));
-			scheduledCount++;
+			this.scheduled.add(new ScheduledPlay(this.clock + child.delay(), child.effect(), child.duration(), child.params(), child.easing(), depth + 1));			scheduledCount++;
 		}
 		LOGGER.info("Scheduled {} child effect(s) from collection '{}'", scheduledCount, effectId);
 			if (definition.getSound() != null) {
@@ -129,7 +136,8 @@ public class VFXEffectManager {
 			// Explicit position overrides (e.g. /vfx playat) win over definition positions.
 			positions = List.of(payloadPos);
 		}
-		VFXActiveEffect effect = new VFXActiveEffect(effectId, type, this.clock, timeline, fadeTicks, loop, positions);
+		List<String> entityTargets = !entityTargetsIn.isEmpty() ? entityTargetsIn : (definition != null ? definition.getEntityTargets() : List.of());
+		VFXActiveEffect effect = new VFXActiveEffect(effectId, type, this.clock, timeline, fadeTicks, loop, positions, entityTargets);
 		this.active.removeIf(e -> e.getId().equals(effectId));
 		while (this.active.size() >= MAX_ACTIVE_EFFECTS) {
 			LOGGER.warn("Active VFX effect limit ({}) reached; removing oldest effect '{}'", MAX_ACTIVE_EFFECTS, this.active.get(0).getId());

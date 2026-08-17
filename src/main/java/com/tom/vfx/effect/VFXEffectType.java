@@ -49,6 +49,10 @@ public enum VFXEffectType {
 	BLOCK_OUTLINE("block_outline"),
 	/** Renders a solid-colour fill over a block (world overlay, not a shader pass). */
 	BLOCK_TINT("block_tint"),
+	/** Renders a translucent filled box over entities matched by UUID or player name (world overlay, not a shader pass). */
+	ENTITY_TINT("entity_tint"),
+	/** Renders an extruded outline box around entities matched by UUID or player name (world overlay, not a shader pass). */
+	ENTITY_OUTLINE("entity_outline"),
 	/** Not an effect itself: plays a list of child effects with per-child delays. */
 	COLLECTION("collection");
 
@@ -70,14 +74,14 @@ public enum VFXEffectType {
 	 * True for the effect types that render a fullscreen post-processing pass.
 	 */
 	public boolean isPostProcessing() {
-		return this != CAMERA_SHAKE && this != BLOCK_OUTLINE && this != BLOCK_TINT && this != FOV_MODIFIER && this != COLLECTION;
+		return this != CAMERA_SHAKE && this != BLOCK_OUTLINE && this != BLOCK_TINT && this != ENTITY_TINT && this != ENTITY_OUTLINE && this != FOV_MODIFIER && this != COLLECTION;
 	}
 
 	/**
 	 * True for the effect types that render world-space geometry each frame.
 	 */
 	public boolean isWorldOverlay() {
-		return this == BLOCK_OUTLINE || this == BLOCK_TINT;
+		return this == BLOCK_OUTLINE || this == BLOCK_TINT || this == ENTITY_TINT || this == ENTITY_OUTLINE;
 	}
 
 	/**

@@ -107,7 +107,7 @@ public final class VFXAPI {
 		params.putAll(overrides);
 		int duration = definition.isPersistent() ? -1 : definition.getDefaultDuration();
 		EasingType effectiveEasing = easing != null ? easing : definition.getDefaultEasing();
-		ServerPlayNetworking.send(player, VFXTriggerPayload.play(effectId, duration, params, effectiveEasing));
+		ServerPlayNetworking.send(player, VFXTriggerPayload.play(effectId, duration, params, effectiveEasing, definition.getEntityTargets()));
 		return true;
 	}
 

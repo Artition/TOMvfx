@@ -152,17 +152,26 @@ public final class VFXWorldOverlayRenderer {
 					if (renderEffect(buffers, camera, effect, minecraft, type, 0.5F, 0.0F, false)) {
 						drawn.add(type);
 					}
-				} else if (effect.getType() == VFXEffectType.BLOCK_OUTLINE) {
-					boolean through = effect.getParam("through_blocks", 0.0F) >= 0.5F;
-					boolean shell = effect.getParam("shell", 0.0F) >= 0.5F;
-					RenderType type = shell
-						? (through ? OUTLINE_SHELL_VISIBLE : OUTLINE_SHELL_OCCLUDED)
-						: (through ? OUTLINE_WALLS_VISIBLE : OUTLINE_WALLS_OCCLUDED);
-					float width = Mth.clamp(effect.getParam("width", 0.05F), 0.0F, 1.0F);
-					if (renderEffect(buffers, camera, effect, minecraft, type, 1.0F, shell ? width : width * 0.5F, shell)) {
-						drawn.add(type);
-					}
+			} else if (effect.getType() == VFXEffectType.BLOCK_OUTLINE) {
+				boolean through = effect.getParam("through_blocks", 0.0F) >= 0.5F;
+				boolean shell = effect.getParam("shell", 0.0F) >= 0.5F;
+				RenderType type = shell
+					? (through ? OUTLINE_SHELL_VISIBLE : OUTLINE_SHELL_OCCLUDED)
+					: (through ? OUTLINE_WALLS_VISIBLE : OUTLINE_WALLS_OCCLUDED);
+				float width = Mth.clamp(effect.getParam("width", 0.05F), 0.0F, 1.0F);
+				if (renderEffect(buffers, camera, effect, minecraft, type, 1.0F, shell ? width : width * 0.5F, shell)) {
+					drawn.add(type);
 				}
+			} else if (effect.getType() == VFXEffectType.ENTITY_TINT || effect.getType() == VFXEffectType.ENTITY_OUTLINE) {
+				boolean tint = effect.getType() == VFXEffectType.ENTITY_TINT;
+				boolean through = effect.getParam("through_blocks", tint ? 1.0F : 0.0F) >= 0.5F;
+				RenderType type = tint
+					? (through ? TINT_VISIBLE : TINT_OCCLUDED)
+					: (through ? OUTLINE_WALLS_VISIBLE : OUTLINE_WALLS_OCCLUDED);
+				if (renderEntityEffect(buffers, camera, effect, minecraft, type, tint)) {
+					drawn.add(type);
+				}
+			}
 			} catch (Exception e) {
 				LOGGER.warn("Failed to render world overlay '{}'", effect.getId(), e);
 			}
@@ -253,6 +262,106 @@ public final class VFXWorldOverlayRenderer {
 			return list;
 		}
 		return List.of(BlockPos.containing(effect.getParam("pos_x", 0.0F), effect.getParam("pos_y", 0.0F), effect.getParam("pos_z", 0.0F)));
+	}
+
+	/**
+	 * Draws one entity tint/outline effect: a translucent filled box (tint) or an extruded
+	 * outline box around every matched entity's current bounding box. Targets are UUID strings
+	 * or player names, resolved against the renderable entities every frame (they can move).
+	 */
+	private static boolean renderEntityEffect(
+		final MultiBufferSource.BufferSource buffers,
+		final CameraRenderState camera,
+		final VFXActiveEffect effect,
+		final Minecraft minecraft,
+		final RenderType renderType,
+		final boolean tint
+	) {
+		List<String> targets = effect.getEntityTargets();
+		if (targets.isEmpty()) {
+			return false;
+		}
+		float alpha = clamp01(effect.getParam("alpha", tint ? 0.35F : 0.9F)) * effect.getWeight();
+		if (alpha <= 0.0F) {
+			return false;
+		}
+		int color = argb(effect, alpha);
+
+		// ponytail: linear scan of renderable entities per frame (no UUID index exists on
+		// the client); fine for <=16 targets, revisit if entity counts explode.
+		List<net.minecraft.world.entity.Entity> matched = new ArrayList<>();
+		List<java.util.UUID> uuids = new ArrayList<>();
+		for (String target : targets) {
+			try {
+				uuids.add(java.util.UUID.fromString(target));
+			} catch (IllegalArgumentException ignored) {
+				uuids.add(null);
+			}
+		}
+		for (net.minecraft.world.entity.Entity entity : minecraft.level.entitiesForRendering()) {
+			for (int i = 0; i < targets.size(); i++) {
+				String target = targets.get(i);
+				java.util.UUID uuid = uuids.get(i);
+				boolean hit = uuid != null ? uuid.equals(entity.getUUID())
+					: entity instanceof net.minecraft.world.entity.player.Player player && player.getGameProfile().name().equalsIgnoreCase(target);
+				if (hit) {
+					matched.add(entity);
+					break;
+				}
+			}
+		}
+		if (matched.isEmpty()) {
+			return false;
+		}
+
+		VertexConsumer buffer = buffers.getBuffer(renderType);
+		PoseStack poseStack = new PoseStack();
+		poseStack.translate(-camera.pos.x, -camera.pos.y, -camera.pos.z);
+		PoseStack.Pose pose = poseStack.last();
+		float extrude = tint ? 0.0F : Mth.clamp(effect.getParam("width", 0.03F), 0.0F, 0.25F) * 0.5F;
+		for (net.minecraft.world.entity.Entity entity : matched) {
+			var box = entity.getBoundingBox().inflate(tint ? 0.0F : extrude);
+			if (tint) {
+				emitBoxFill(buffer, pose, color, box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ);
+			} else {
+				emitBoxWalls(buffer, pose, color, box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ, extrude);
+			}
+		}
+		return true;
+	}
+
+	/** Fills the 6 faces of an axis-aligned box given by its min/max corners. */
+	private static void emitBoxFill(final VertexConsumer buffer, final PoseStack.Pose pose, final int color, final double minX, final double minY, final double minZ, final double maxX, final double maxY, final double maxZ) {
+		for (float[] face : CUBE_FACES) {
+			for (int i = 0; i < 4; i++) {
+				float x = face[i * 3] > 0.5F ? (float) maxX : (float) minX;
+				float y = face[i * 3 + 1] > 0.5F ? (float) maxY : (float) minY;
+				float z = face[i * 3 + 2] > 0.5F ? (float) maxZ : (float) minZ;
+				buffer.addVertex(pose, x, y, z).setColor(color);
+			}
+		}
+	}
+
+	/** Extrudes the 6 faces of an axis-aligned box outwards along their face normals. */
+	private static void emitBoxWalls(final VertexConsumer buffer, final PoseStack.Pose pose, final int color, final double minX, final double minY, final double minZ, final double maxX, final double maxY, final double maxZ, final float extrude) {
+		for (float[] face : CUBE_FACES) {
+			float nx = face[12] * extrude;
+			float ny = face[13] * extrude;
+			float nz = face[14] * extrude;
+			for (int i = 0; i < 4; i++) {
+				int j = (i + 1) & 3;
+				float x0 = face[i * 3] > 0.5F ? (float) maxX : (float) minX;
+				float y0 = face[i * 3 + 1] > 0.5F ? (float) maxY : (float) minY;
+				float z0 = face[i * 3 + 2] > 0.5F ? (float) maxZ : (float) minZ;
+				float x1 = face[j * 3] > 0.5F ? (float) maxX : (float) minX;
+				float y1 = face[j * 3 + 1] > 0.5F ? (float) maxY : (float) minY;
+				float z1 = face[j * 3 + 2] > 0.5F ? (float) maxZ : (float) minZ;
+				buffer.addVertex(pose, x0, y0, z0).setColor(color);
+				buffer.addVertex(pose, x1, y1, z1).setColor(color);
+				buffer.addVertex(pose, x1 + nx, y1 + ny, z1 + nz).setColor(color);
+				buffer.addVertex(pose, x0 + nx, y0 + ny, z0 + nz).setColor(color);
+			}
+		}
 	}
 
 	private static List<BakedQuad> getModelQuads(final Minecraft minecraft, final BlockPos pos) {

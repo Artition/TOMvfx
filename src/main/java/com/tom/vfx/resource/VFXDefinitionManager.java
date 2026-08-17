@@ -168,7 +168,7 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 					"yaw_delta", VFXDefinition.ParamSpec.bound(new BoundParam(BoundParam.Kind.CAMERA_YAW_DELTA, 0.0, 0.0, 0.0, 0.0F, 0.0F, 1.0F, false, 1.0F)),
 					"pitch_delta", VFXDefinition.ParamSpec.bound(new BoundParam(BoundParam.Kind.CAMERA_PITCH_DELTA, 0.0, 0.0, 0.0, 0.0F, 0.0F, 1.0F, false, 1.0F))
 				),
-				false, false, 0, List.of(), List.of(), null
+				false, false, 0, List.of(), List.of(), List.of(), null
 			)
 		);
 		this.builtIns.put(
@@ -222,7 +222,7 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 					"color_b", VFXDefinition.ParamSpec.constant(1.0F),
 					"alpha", VFXDefinition.ParamSpec.constant(0.35F)
 				),
-				false, false, 10, List.of(), List.of(), null
+				false, false, 10, List.of(), List.of(), List.of(), null
 			)
 		);
 		this.builtIns.put(
@@ -239,7 +239,41 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 					"alpha", VFXDefinition.ParamSpec.constant(0.9F),
 					"width", VFXDefinition.ParamSpec.constant(0.05F)
 				),
-				false, false, 10, List.of(), List.of(), null
+				false, false, 10, List.of(), List.of(), List.of(), null
+			)
+		);
+		// World-space entity highlighting (targets come from the datapack definition or the payload).
+		this.builtIns.put(
+			Identifier.fromNamespaceAndPath("tompfx", "entity_tint"),
+			VFXDefinition.create(
+				Identifier.fromNamespaceAndPath("tompfx", "entity_tint"),
+				VFXEffectType.ENTITY_TINT,
+				60,
+				EasingType.EASE_IN_OUT_CUBIC,
+				Map.of(
+					"color_r", VFXDefinition.ParamSpec.constant(0.2F),
+					"color_g", VFXDefinition.ParamSpec.constant(0.6F),
+					"color_b", VFXDefinition.ParamSpec.constant(1.0F),
+					"alpha", VFXDefinition.ParamSpec.constant(0.35F)
+				),
+				false, false, 10, List.of(), List.of(), List.of(), null
+			)
+		);
+		this.builtIns.put(
+			Identifier.fromNamespaceAndPath("tompfx", "entity_outline"),
+			VFXDefinition.create(
+				Identifier.fromNamespaceAndPath("tompfx", "entity_outline"),
+				VFXEffectType.ENTITY_OUTLINE,
+				60,
+				EasingType.EASE_IN_OUT_CUBIC,
+				Map.of(
+					"color_r", VFXDefinition.ParamSpec.constant(1.0F),
+					"color_g", VFXDefinition.ParamSpec.constant(0.85F),
+					"color_b", VFXDefinition.ParamSpec.constant(0.2F),
+					"alpha", VFXDefinition.ParamSpec.constant(0.9F),
+					"width", VFXDefinition.ParamSpec.constant(0.03F)
+				),
+				false, false, 10, List.of(), List.of(), List.of(), null
 			)
 		);
 	}
