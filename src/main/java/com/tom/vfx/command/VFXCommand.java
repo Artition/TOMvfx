@@ -12,6 +12,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.tom.vfx.api.VFXAPI;
 import com.tom.vfx.effect.EasingType;
+import com.tom.vfx.effect.VFXDefinition;
 import com.tom.vfx.resource.VFXDefinitionManager;
 import java.util.Collection;
 import java.util.List;
@@ -90,6 +91,7 @@ public final class VFXCommand {
 								.suggests(VFXCommand::suggestEffects)
 								.then(
 									Commands.argument("param", StringArgumentType.word())
+										.suggests(VFXCommand::suggestParams)
 										.then(
 											Commands.argument("value", FloatArgumentType.floatArg())
 												.executes(context2 -> setParam(context2, List.of(requirePlayer(context2))))
@@ -108,6 +110,7 @@ public final class VFXCommand {
 								.suggests(VFXCommand::suggestEffects)
 								.then(
 									Commands.argument("param", StringArgumentType.word())
+										.suggests(VFXCommand::suggestParams)
 										.then(
 											Commands.argument("time", IntegerArgumentType.integer(0))
 												.then(
@@ -242,6 +245,20 @@ public final class VFXCommand {
 
 	private static CompletableFuture<Suggestions> suggestEasings(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
 		return SharedSuggestionProvider.suggest(java.util.Arrays.stream(EasingType.values()).map(e -> e.name().toLowerCase(java.util.Locale.ROOT)), builder);
+	}
+
+	/**
+	 * Suggests the parameter names of the effect referenced by the already-typed
+	 * {@code effect} argument (definition params, or nothing when the id is unresolved).
+	 */
+	private static CompletableFuture<Suggestions> suggestParams(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
+		String raw = context.getArgument("effect", String.class);
+		Identifier effectId = Identifier.parse(raw);
+		VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
+		if (definition != null) {
+			return SharedSuggestionProvider.suggest(definition.getParams().keySet(), builder);
+		}
+		return builder.buildFuture();
 	}
 
 	private static ServerPlayer requirePlayer(final CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
