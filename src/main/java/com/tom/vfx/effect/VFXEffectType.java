@@ -41,6 +41,10 @@ public enum VFXEffectType {
 	DEPTH_OF_FIELD("depth_of_field"),
 	/** Cinematic black bars at the top and bottom of the screen. */
 	LETTERBOX("letterbox"),
+	/** Inverts the screen colours. */
+	INVERT("invert"),
+	/** Swirls pixels around a point: strongest at the centre, fading out to the radius. */
+	VORTEX("vortex"),
 	/** Modifies the camera field of view. */
 	FOV_MODIFIER("fov_modifier"),
 	/** Camera shake driven by simplex noise. */
@@ -114,6 +118,8 @@ public enum VFXEffectType {
 		case SCANLINES -> "intensity".equals(parameter) ? 0.0F : Float.NaN;
 		case DEPTH_OF_FIELD -> "intensity".equals(parameter) ? 0.0F : Float.NaN;
 		case LETTERBOX -> "height".equals(parameter) ? 0.0F : Float.NaN;
+		case INVERT -> "intensity".equals(parameter) ? 0.0F : Float.NaN;
+		case VORTEX -> "strength".equals(parameter) ? 0.0F : Float.NaN;
 		case FOV_MODIFIER -> "fov_delta".equals(parameter) ? 0.0F : Float.NaN;
 		default -> Float.NaN;
 		};
