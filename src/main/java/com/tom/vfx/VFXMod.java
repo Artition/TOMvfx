@@ -1,11 +1,14 @@
 package com.tom.vfx;
 
+import com.tom.vfx.command.ParamMapArgument;
 import com.tom.vfx.command.VFXCommand;
 import com.tom.vfx.network.VFXPayloads;
 import com.tom.vfx.resource.VFXDefinitionManager;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.ArgumentTypeRegistry;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
+import net.minecraft.commands.synchronization.SingletonArgumentInfo;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
 import org.slf4j.Logger;
@@ -18,6 +21,10 @@ public class VFXMod implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		VFXPayloads.register();
+		// Registered eagerly with the vanilla stateless serializer: a custom type missing
+		// from the registry makes the server fail to serialize the command tree (kicks
+		// players on join), and a hand-rolled serializer breaks client decoding.
+		ArgumentTypeRegistry.registerArgumentType(id("param_map"), ParamMapArgument.class, SingletonArgumentInfo.contextFree(ParamMapArgument::new));
 		CommandRegistrationCallback.EVENT.register(VFXCommand::register);
 
 		// Datapack VFX definitions (data/<namespace>/vfx/<effect>.json). Also registered from the
