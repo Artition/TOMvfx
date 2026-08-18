@@ -44,3 +44,11 @@ replay_*.log
 
 # local scratch (Claude bridge cannot delete files, only move them here)
 _to_delete/
+
+# ai agents — не коммитить файлы нейросетей
+AGENTS.md
+.opencode/
+CLAUDE.md
+.cursorrules
+.cursor/
+.github/copilot-instructions.md
