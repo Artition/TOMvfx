@@ -81,7 +81,7 @@ public class VFXEffectManager {
 				return false;
 			});
 			for (ScheduledPlay play : due) {
-				this.play(play.effectId(), play.durationTicks(), 0L, null, play.params(), play.easing(), play.depth());
+				this.play(play.effectId(), play.durationTicks(), 0L, play.position(), play.params(), play.easing(), play.depth());
 			}
 		}
 		for (VFXActiveEffect effect : this.active) {
@@ -144,7 +144,7 @@ public class VFXEffectManager {
 					LOGGER.warn("Scheduled VFX effect limit ({}) reached; dropping remaining collection children", MAX_SCHEDULED_EFFECTS);
 					break;
 				}
-				this.scheduled.add(new ScheduledPlay(this.clock + child.delay(), child.effect(), child.duration(), child.params(), child.easing(), depth + 1));
+				this.scheduled.add(new ScheduledPlay(this.clock + child.delay(), child.effect(), child.duration(), position, child.params(), child.easing(), depth + 1));
 				scheduledCount++;
 			}
 			LOGGER.info("Scheduled {} child effect(s) from collection '{}'", scheduledCount, effectId);
@@ -414,6 +414,6 @@ public class VFXEffectManager {
 	/**
 	 * A child effect waiting for its delay to elapse.
 	 */
-	private record ScheduledPlay(float at, Identifier effectId, int durationTicks, Map<String, Float> params, EasingFunction easing, int depth) {
+	private record ScheduledPlay(float at, Identifier effectId, int durationTicks, @Nullable Vec3 position, Map<String, Float> params, EasingFunction easing, int depth) {
 	}
 }
