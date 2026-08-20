@@ -1,6 +1,7 @@
 package com.tom.vfx.client.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.tom.vfx.client.access.ITomVFXEntityState;
 import com.tom.vfx.client.effect.VFXEffectManager;
 import com.tom.vfx.client.render.VFXEntityEffectRenderer;
 import com.tom.vfx.effect.VFXActiveEffect;
@@ -49,7 +50,7 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
 		method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
 		at = @At(
 			value = "INVOKE",
-			target = "Lnet/minecraft/client/renderer/OrderedSubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/TextureAtlasSprite;ILnet/minecraft/client/renderer/feature/ModelFeatureRenderer$CrumblingOverlay;)V",
+			target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/TextureAtlasSprite;ILnet/minecraft/client/renderer/feature/ModelFeatureRenderer$CrumblingOverlay;)V",
 			shift = At.Shift.AFTER
 		)
 	)

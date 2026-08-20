@@ -1,5 +1,6 @@
 package com.tom.vfx.client.mixin;
 
+import com.tom.vfx.client.access.ITomVFXEntityState;
 import java.util.UUID;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import org.jspecify.annotations.Nullable;
