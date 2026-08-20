@@ -400,7 +400,8 @@ public class VFXEffectManager {
 				// effect's resolved volume/pitch for the receiving client instead of at world
 				// coordinates. Volume/pitch are read from the effect timeline at start time.
 				SoundEvent soundEvent = SoundEvent.createVariableRangeEvent(soundId);
-				minecraft.getSoundManager().play(SimpleSoundInstance.forUI(soundEvent, volume, pitch));
+				// forUI(SoundEvent, pitch, volume) — note the argument order.
+				minecraft.getSoundManager().play(SimpleSoundInstance.forUI(soundEvent, pitch, volume));
 			}
 		} catch (Exception e) {
 			LOGGER.warn("Failed to play VFX sound '{}'", soundId, e);
