@@ -13,6 +13,7 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.LivingEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +42,9 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
 	@Shadow
 	protected M model;
 
+	@Shadow
+	public abstract Identifier getTextureLocation(S state);
+
 	@Inject(method = "extractRenderState(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;F)V", at = @At("TAIL"))
 	private void tompfx$storeEntityUuid(final LivingEntity entity, final LivingEntityRenderState state, final float partialTicks, final CallbackInfo ci) {
 		((ITomVFXEntityState) state).tompfx$setUuid(entity.getUUID());
@@ -63,12 +67,13 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity, S extend
 		if (effects.isEmpty()) {
 			return;
 		}
+		Identifier texture = this.getTextureLocation(state);
 		for (VFXActiveEffect effect : effects) {
 			try {
 				if (effect.getType() == VFXEffectType.ENTITY_TINT) {
-					VFXEntityEffectRenderer.renderTint(effect, state, poseStack, submitNodeCollector, this.model);
+					VFXEntityEffectRenderer.renderTint(effect, state, poseStack, submitNodeCollector, this.model, texture);
 				} else if (effect.getType() == VFXEffectType.ENTITY_OUTLINE) {
-					VFXEntityEffectRenderer.renderOutline(effect, state, poseStack, submitNodeCollector, this.model);
+					VFXEntityEffectRenderer.renderOutline(effect, state, poseStack, submitNodeCollector, this.model, texture);
 				}
 			} catch (Exception e) {
 				LOGGER.warn("Failed to apply entity effect '{}'", effect.getId(), e);

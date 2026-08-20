@@ -15,6 +15,7 @@ in vec3 Normal;
 out float sphericalVertexDistance;
 out float cylindricalVertexDistance;
 out vec4 vertexColor;
+out vec2 texCoord0;
 
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
@@ -24,4 +25,5 @@ void main() {
 
     // The model vertex colour already carries the effect ARGB (passed as the submitModel tint).
     vertexColor = Color;
+    texCoord0 = UV0;
 }

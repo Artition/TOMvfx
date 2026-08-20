@@ -9,6 +9,8 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.tom.vfx.effect.VFXActiveEffect;
+import java.util.HashMap;
+import java.util.Map;
 import net.minecraft.client.model.Model;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -23,60 +25,64 @@ import net.minecraft.util.Mth;
  * Second-pass renderer for {@code entity_tint} and {@code entity_outline} effects. Both effects
  * re-submit the entity's own model (same {@link DefaultVertexFormat.ENTITY} vertices) through a
  * custom {@link RenderType}, so the geometry is rendered a second time without touching the
- * vanilla textures or shaders.
+ * vanilla render type or its textures.
  *
- * <p><b>Tint</b> is a solid-colour translucent fill: the effect ARGB is passed as the model tint,
- * the fragment shader ignores textures/lighting and outputs the vertex colour. Depth is
- * {@code LEQUAL} by default ({@code through_blocks = 0}) or {@code ALWAYS_PASS} when the effect
- * should be visible through terrain.</p>
+ * <p>Both effects bind the entity's texture as {@code Sampler0} and use it as a transparency
+ * mask (like the vanilla {@code rendertype_outline} shader): texels with zero alpha are discarded,
+ * so the effect follows the silhouette of the texture instead of a flat box around the model.
+ * Render types are therefore memoized per entity texture {@link Identifier}.</p>
+ *
+ * <p><b>Tint</b> has two modes selected by the boolean {@code texture} parameter. With
+ * {@code texture = 1} (default) the texture is multiplied by the effect colour — the entity keeps
+ * its look but is recoloured (and its own alpha is preserved). With {@code texture = 0} the tint
+ * is a flat fill colour with the texture used only as the alpha mask (vanilla-outline style).
+ * Depth is {@code LEQUAL} by default ({@code through_blocks = 0}) or {@code ALWAYS_PASS} when the
+ * effect should be visible through terrain.</p>
  *
  * <p><b>Outline</b> is an inverted hull: the model is re-submitted scaled around its vertical
  * centre and only back-facing fragments are kept (front faces are discarded in the fragment
- * shader — the pipeline API only offers back-face culling, no front-face mode). With a
- * {@code LEQUAL} depth test the inflated shell stays behind the entity's own surface, leaving a
- * clean rim around the silhouette; with {@code ALWAYS_PASS} it becomes a see-through glow.
- * The {@code width} parameter scales the silhouette (uniform scale around the model centre), not
- * a per-vertex normal offset: a per-draw width uniform would need a custom UBO that the
- * {@code submitModel} draw path cannot bind.
+ * shader — the pipeline API only offers back-face culling, no front-face mode). The output is a
+ * flat fill colour with the texture as the alpha mask, so the rim follows the texture contour.
+ * With a {@code LEQUAL} depth test the inflated shell stays behind the entity's own surface,
+ * leaving a clean rim around the silhouette; with {@code ALWAYS_PASS} it becomes a see-through
+ * glow. The {@code width} parameter scales the silhouette (uniform scale around the model
+ * centre), not a per-vertex normal offset: a per-draw width uniform would need a custom UBO that
+ * the {@code submitModel} draw path cannot bind.
  * // ponytail: width is scale-around-centre (thickness varies with distance from centre), not a
  * // constant world-space offset; switch to a normal-offset shader with a per-draw UBO if constant
  * // thickness is ever needed.
  */
 public final class VFXEntityEffectRenderer {
-	private static RenderPipeline entityFxPipeline(final String suffix, final CompareOp depthOp, final boolean outline) {
-		RenderPipeline.Builder builder = RenderPipeline.builder(RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET)
-			.withLocation(Identifier.fromNamespaceAndPath("tompfx", "world/entity_" + suffix))
-			.withVertexShader(Identifier.fromNamespaceAndPath("tompfx", "core/entity_fx"))
-			.withFragmentShader(Identifier.fromNamespaceAndPath("tompfx", "core/entity_fx"))
-			.withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.QUADS)
-			.withDepthStencilState(new DepthStencilState(depthOp, false))
-			.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
-			.withCull(false);
-		if (outline) {
-			builder.withShaderDefine("OUTLINE");
-		}
-		return RenderPipelines.register(builder.build());
+	private static RenderPipeline entityFxPipeline(final String suffix, final CompareOp depthOp, final String define) {
+		return RenderPipelines.register(
+			RenderPipeline.builder(RenderPipelines.MATRICES_FOG_LIGHT_DIR_SNIPPET)
+				.withLocation(Identifier.fromNamespaceAndPath("tompfx", "world/entity_" + suffix))
+				.withVertexShader(Identifier.fromNamespaceAndPath("tompfx", "core/entity_fx"))
+				.withFragmentShader(Identifier.fromNamespaceAndPath("tompfx", "core/entity_fx"))
+				.withSampler("Sampler0")
+				.withShaderDefine(define)
+				.withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.QUADS)
+				.withDepthStencilState(new DepthStencilState(depthOp, false))
+				.withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+				.withCull(false)
+				.build()
+		);
 	}
 
-	private static final RenderType TINT_VISIBLE = RenderType.create(
-		"tompfx_entity_tint_visible",
-		RenderSetup.builder(entityFxPipeline("tint_visible", CompareOp.ALWAYS_PASS, false)).createRenderSetup()
-	);
+	// Pipeline per (mode, through_blocks) combination; RenderTypes then memoize per entity texture.
+	private static final RenderPipeline TINT_MULTIPLY_VISIBLE = entityFxPipeline("tint_multiply_visible", CompareOp.ALWAYS_PASS, "TINT_MULTIPLY");
+	private static final RenderPipeline TINT_MULTIPLY_OCCLUDED = entityFxPipeline("tint_multiply_occluded", CompareOp.LESS_THAN_OR_EQUAL, "TINT_MULTIPLY");
+	private static final RenderPipeline TINT_MASK_VISIBLE = entityFxPipeline("tint_mask_visible", CompareOp.ALWAYS_PASS, "TINT_MASK");
+	private static final RenderPipeline TINT_MASK_OCCLUDED = entityFxPipeline("tint_mask_occluded", CompareOp.LESS_THAN_OR_EQUAL, "TINT_MASK");
+	private static final RenderPipeline OUTLINE_VISIBLE = entityFxPipeline("outline_visible", CompareOp.ALWAYS_PASS, "OUTLINE");
+	private static final RenderPipeline OUTLINE_OCCLUDED = entityFxPipeline("outline_occluded", CompareOp.LESS_THAN_OR_EQUAL, "OUTLINE");
 
-	private static final RenderType TINT_OCCLUDED = RenderType.create(
-		"tompfx_entity_tint_occluded",
-		RenderSetup.builder(entityFxPipeline("tint_occluded", CompareOp.LESS_THAN_OR_EQUAL, false)).createRenderSetup()
-	);
-
-	private static final RenderType OUTLINE_VISIBLE = RenderType.create(
-		"tompfx_entity_outline_visible",
-		RenderSetup.builder(entityFxPipeline("outline_visible", CompareOp.ALWAYS_PASS, true)).createRenderSetup()
-	);
-
-	private static final RenderType OUTLINE_OCCLUDED = RenderType.create(
-		"tompfx_entity_outline_occluded",
-		RenderSetup.builder(entityFxPipeline("outline_occluded", CompareOp.LESS_THAN_OR_EQUAL, true)).createRenderSetup()
-	);
+	private static final Map<Identifier, RenderType> TINT_MULTIPLY_VISIBLE_TYPES = new HashMap<>();
+	private static final Map<Identifier, RenderType> TINT_MULTIPLY_OCCLUDED_TYPES = new HashMap<>();
+	private static final Map<Identifier, RenderType> TINT_MASK_VISIBLE_TYPES = new HashMap<>();
+	private static final Map<Identifier, RenderType> TINT_MASK_OCCLUDED_TYPES = new HashMap<>();
+	private static final Map<Identifier, RenderType> OUTLINE_VISIBLE_TYPES = new HashMap<>();
+	private static final Map<Identifier, RenderType> OUTLINE_OCCLUDED_TYPES = new HashMap<>();
 
 	private VFXEntityEffectRenderer() {
 	}
@@ -86,10 +92,21 @@ public final class VFXEntityEffectRenderer {
 	 * resource reload precompiles the shaders. Idempotent.
 	 */
 	public static void register() {
-		RenderType tint = TINT_VISIBLE;
-		RenderType tintOccluded = TINT_OCCLUDED;
-		RenderType outline = OUTLINE_VISIBLE;
-		RenderType outlineOccluded = OUTLINE_OCCLUDED;
+		RenderPipeline a = TINT_MULTIPLY_VISIBLE;
+		RenderPipeline b = OUTLINE_OCCLUDED;
+	}
+
+	/** Creates (or reuses) the render type for a texture, binding it as Sampler0. */
+	private static RenderType typeFor(
+		final Map<Identifier, RenderType> map,
+		final String name,
+		final RenderPipeline pipeline,
+		final Identifier texture
+	) {
+		return map.computeIfAbsent(texture, id -> RenderType.create(
+			name + ":" + id,
+			RenderSetup.builder(pipeline).withTexture("Sampler0", id).createRenderSetup()
+		));
 	}
 
 	private static <S extends LivingEntityRenderState> void submit(
@@ -104,33 +121,50 @@ public final class VFXEntityEffectRenderer {
 	}
 
 	/**
-	 * Solid-colour tint pass: re-submits the model with the effect ARGB as the model tint.
+	 * Tint pass. {@code textureMode}: 1 = multiply the entity texture by the effect colour,
+	 * 0 = flat fill colour with the texture as the alpha mask. Both follow the texture silhouette.
 	 */
 	public static <S extends LivingEntityRenderState> void renderTint(
 		final VFXActiveEffect effect,
 		final S state,
 		final PoseStack poseStack,
 		final SubmitNodeCollector submitNodeCollector,
-		final Model<? super S> model
+		final Model<? super S> model,
+		final Identifier texture
 	) {
 		float alpha = clamp01(effect.getParam("alpha", 0.5F)) * effect.getWeight();
 		if (alpha <= 0.0F) {
 			return;
 		}
 		boolean through = effect.getParam("through_blocks", 1.0F) >= 0.5F;
-		submit(state, poseStack, submitNodeCollector, model, through ? TINT_VISIBLE : TINT_OCCLUDED, argb(effect, alpha));
+		boolean multiply = effect.getParam("texture", 1.0F) >= 0.5F;
+		Map<Identifier, RenderType> map;
+		if (multiply) {
+			map = through ? TINT_MULTIPLY_VISIBLE_TYPES : TINT_MULTIPLY_OCCLUDED_TYPES;
+		} else {
+			map = through ? TINT_MASK_VISIBLE_TYPES : TINT_MASK_OCCLUDED_TYPES;
+		}
+		String base = multiply
+			? (through ? "tompfx_entity_tint_multiply_visible" : "tompfx_entity_tint_multiply_occluded")
+			: (through ? "tompfx_entity_tint_mask_visible" : "tompfx_entity_tint_mask_occluded");
+		RenderPipeline pipeline = multiply
+			? (through ? TINT_MULTIPLY_VISIBLE : TINT_MULTIPLY_OCCLUDED)
+			: (through ? TINT_MASK_VISIBLE : TINT_MASK_OCCLUDED);
+		submit(state, poseStack, submitNodeCollector, model, typeFor(map, base, pipeline, texture), argb(effect, alpha));
 	}
 
 	/**
 	 * Inverted-hull outline pass: re-submits the model scaled around its vertical centre and lets
 	 * the shader keep only back-facing fragments, producing a rim around the entity silhouette.
+	 * The texture is used as the alpha mask so the rim follows the texture contour.
 	 */
 	public static <S extends LivingEntityRenderState> void renderOutline(
 		final VFXActiveEffect effect,
 		final S state,
 		final PoseStack poseStack,
 		final SubmitNodeCollector submitNodeCollector,
-		final Model<? super S> model
+		final Model<? super S> model,
+		final Identifier texture
 	) {
 		float alpha = clamp01(effect.getParam("alpha", 1.0F)) * effect.getWeight();
 		if (alpha <= 0.0F) {
@@ -139,6 +173,9 @@ public final class VFXEntityEffectRenderer {
 		boolean through = effect.getParam("through_blocks", 0.0F) >= 0.5F;
 		float width = Mth.clamp(effect.getParam("width", 0.05F), 0.0F, 1.0F);
 		int color = argb(effect, alpha);
+		Map<Identifier, RenderType> map = through ? OUTLINE_VISIBLE_TYPES : OUTLINE_OCCLUDED_TYPES;
+		String base = through ? "tompfx_entity_outline_visible" : "tompfx_entity_outline_occluded";
+		RenderPipeline pipeline = through ? OUTLINE_VISIBLE : OUTLINE_OCCLUDED;
 
 		poseStack.pushPose();
 		try {
@@ -148,7 +185,7 @@ public final class VFXEntityEffectRenderer {
 			poseStack.translate(0.0F, -pivot, 0.0F);
 			poseStack.scale(1.0F + width, 1.0F + width, 1.0F + width);
 			poseStack.translate(0.0F, pivot, 0.0F);
-			submit(state, poseStack, submitNodeCollector, model, through ? OUTLINE_VISIBLE : OUTLINE_OCCLUDED, color);
+			submit(state, poseStack, submitNodeCollector, model, typeFor(map, base, pipeline, texture), color);
 		} finally {
 			poseStack.popPose();
 		}

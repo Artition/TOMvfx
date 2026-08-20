@@ -299,7 +299,8 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 					"color_r", VFXDefinition.ParamSpec.constant(0.2F),
 					"color_g", VFXDefinition.ParamSpec.constant(0.6F),
 					"color_b", VFXDefinition.ParamSpec.constant(1.0F),
-					"alpha", VFXDefinition.ParamSpec.constant(0.5F)
+					"alpha", VFXDefinition.ParamSpec.constant(0.5F),
+					"texture", VFXDefinition.ParamSpec.constant(1.0F)
 				),
 				false, false, 10, List.of(), List.of(), null
 			)
