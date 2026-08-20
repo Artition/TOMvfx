@@ -250,20 +250,6 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 				param("yaw", 0.8F), param("pitch", 0.6F), param("roll", 0.4F))
 		);
 		this.builtIns.put(
-			Identifier.fromNamespaceAndPath("tompfx", "cinematic_camera"),
-			VFXDefinition.create(
-				Identifier.fromNamespaceAndPath("tompfx", "cinematic_camera"),
-				VFXEffectType.CINEMATIC_CAMERA,
-				40,
-				EasingFunction.builtIn(EasingType.EASE_IN_OUT_CUBIC),
-				Map.of(
-					"yaw_smoothing", VFXDefinition.ParamSpec.constant(0.5F),
-					"pitch_smoothing", VFXDefinition.ParamSpec.constant(0.5F)
-				),
-				true, false, 20, List.of()
-			)
-		);
-		this.builtIns.put(
 			Identifier.fromNamespaceAndPath("tompfx", "fov_modifier"),
 			builtIn("tompfx", "fov_modifier", VFXEffectType.FOV_MODIFIER, 40, EasingType.EASE_IN_OUT_CUBIC,
 				param("fov_delta", 10.0F, 0.0F))

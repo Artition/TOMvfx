@@ -49,8 +49,6 @@ public enum VFXEffectType {
 	FOV_MODIFIER("fov_modifier"),
 	/** Camera shake driven by simplex noise. */
 	CAMERA_SHAKE("camera_shake"),
-	/** Smoothes the player's camera rotation (cinematic, frame-independent exponential smoothing). */
-	CINEMATIC_CAMERA("cinematic_camera"),
 	/** Renders a coloured outline around a block (world overlay, not a shader pass). */
 	BLOCK_OUTLINE("block_outline"),
 	/** Renders a solid-colour fill over a block (world overlay, not a shader pass). */
@@ -76,7 +74,7 @@ public enum VFXEffectType {
 	 * True for the effect types that render a fullscreen post-processing pass.
 	 */
 	public boolean isPostProcessing() {
-		return this != CAMERA_SHAKE && this != CINEMATIC_CAMERA && this != BLOCK_OUTLINE && this != BLOCK_TINT && this != FOV_MODIFIER && this != COLLECTION;
+		return this != CAMERA_SHAKE && this != BLOCK_OUTLINE && this != BLOCK_TINT && this != FOV_MODIFIER && this != COLLECTION;
 	}
 
 	/**

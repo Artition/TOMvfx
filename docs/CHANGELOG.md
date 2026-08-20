@@ -4,7 +4,6 @@
 
 ## [Unreleased]
 ### Added
-- **Эффект `cinematic_camera`** — сглаживает вращение камеры игрока (создаёт инерцию), делая повороты плавными и тягучими. Frame-independent экспоненциальное сглаживание (`factor = 1 - exp(-smoothing * deltaSeconds)`) с учётом оборота по yaw через `Mth.wrapDegrees`. Параметры `yaw_smoothing`/`pitch_smoothing` (0 = выкл, 1+ = сильная инерция) анимируются через `AnimatedValue` и умножаются на fade-вес эффекта. Встроенный `tompfx:cinematic_camera` (persistent, `fade_ticks: 20`). Применяется в `CameraMixin` до тряски, чтобы не конфликтовать с `camera_shake`.
 - **Математические выражения в параметрах** — новый способ задания параметра через `"expr": "sin(t * 0.1) + noise(x, y, z) * 0.2"`. Доступны переменные `t` (тики от старта), `x`/`y`/`z` (координаты камеры), константы `pi`/`e`; функции `sin`, `cos`, `abs`, `min`, `max`, `pow`, `sqrt`, `random()` (0..1), `noise(x,y,z)` (simplex 3D, -1..1). Строка компилируется в AST один раз (Recursive Descent Parser) при создании экземпляра и оценивается каждый кадр через `eval(t,x,y,z)` — парсинга по кадрам нет. `random()`/`noise()` детерминированы по per-instance seed, так что каждый экземпляр даёт свой шум.
 - **Уникальный шум camera shake** — `VFXActiveEffect` несёт случайный `instanceSeed`; `CameraShakeManager` сдвигает домен шума на этот seed, поэтому каждый `/vfx play tompfx:camera_shake` даёт неповторяющуюся тряску.
 - `SimplexNoise` перенесён в общий (common) исходник (`com.tom.vfx.noise`) — теперь доступен и для математических выражений, и для тряски камеры.

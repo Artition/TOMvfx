@@ -365,10 +365,6 @@ public class VFXEffectManager {
 		return this.active.stream().filter(e -> e.getType() == VFXEffectType.CAMERA_SHAKE).toList();
 	}
 
-	public List<VFXActiveEffect> getActiveCinematics() {
-		return this.active.stream().filter(e -> e.getType() == VFXEffectType.CINEMATIC_CAMERA).toList();
-	}
-
 	public float getActiveFovDelta() {
 		float delta = 0.0F;
 		for (VFXActiveEffect effect : this.active) {

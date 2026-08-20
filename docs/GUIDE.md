@@ -2,7 +2,7 @@
 
 Клиентская библиотека VFX-эффектов для Minecraft 26.1 (Fabric). Пост-обработка экрана (ping-pong FBO), тряска камеры, мировые оверлеи (тинт/обводка блоков), ключевая анимация, привязки к миру и камере, датапаки, сетевые триггеры и публичный Java API.
 
-- Версия гайда: 16 (см. [docs/CHANGELOG.md](CHANGELOG.md) для истории изменений)
+- Версия гайда: 15 (см. [docs/CHANGELOG.md](CHANGELOG.md) для истории изменений)
 - Мод: `tompfx-1.0.0.jar`, требует Fabric API
 
 Файлы: `data/<namespace>/vfx/<имя>.json` и `data/<namespace>/vfx_curves/<имя>.json`. После правок — `/reload`. ID эффекта = `<namespace>:<имя>`. На выделенном сервере определения и кривые автоматически синхронизируются с клиентами при входе игрока и после `/reload`, поэтому кастомные (датапак) эффекты работают у всех игроков, а не только на сервере.
@@ -69,7 +69,6 @@
 | Тип | Параметры | Описание |
 |---|---|---|
 | `camera_shake` | `amplitude_x/y/z`, `yaw`, `pitch`, `roll` | Тряска камеры симплекс-шумом с плавной огибающей |
-| `cinematic_camera` | `yaw_smoothing`, `pitch_smoothing` (0 = выкл, 1+ = сильная инерция) | Сглаживает вращение камеры (frame-independent инерция), делает повороты плавными и тягучими |
 | `collection` | — (см. §5) | Не эффект: сценарий из нескольких эффектов с задержками |
 
 ---
@@ -272,7 +271,7 @@
 
 Мировые оверлеи: `tompfx:block_tint`, `tompfx:block_outline`.
 
-Прочее: `tompfx:camera_shake`, `tompfx:cinematic_camera`, `tompfx:fov_modifier`.
+Прочее: `tompfx:camera_shake`, `tompfx:fov_modifier`.
 
 Все с анимацией затухания (40 тиков, кроме указанных), можно переопределять параметры коллекциями.
 
@@ -301,10 +300,7 @@ VFXAPI.playEffect(effectId, 0, Map.of("radius", 8.0F), EasingType.EASE_OUT_CUBIC
 
 История изменений фич по версиям — **[docs/CHANGELOG.md](CHANGELOG.md)**.
 
-Версия гайда: 16 — см. changelog ниже.
-
-### v16
-- Новый эффект `cinematic_camera`: сглаживает вращение камеры (frame-independent инерция). Параметры `yaw_smoothing`/`pitch_smoothing` (0 = выкл, 1+ = сильная инерция), встроенный `tompfx:cinematic_camera` (persistent, `fade_ticks: 20`).
+Версия гайда: 15 — см. changelog ниже.
 
 ### v15
 - Новый способ задать параметр — математическое выражение `"expr"` (переменные `t`/`x`/`y`/`z`/`pi`/`e`, функции `sin`/`cos`/`abs`/`min`/`max`/`pow`/`sqrt`/`random`/`noise`). Компилируется один раз, оценивается каждый кадр; `random()`/`noise()` уникальны для каждого экземпляра.
