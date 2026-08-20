@@ -9,6 +9,7 @@ import com.tom.vfx.effect.VFXEffectType;
 import com.tom.vfx.effect.VFXTimeline;
 import com.tom.vfx.resource.VFXDefinitionManager;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,12 @@ public class VFXEffectManager {
 
 	private final List<VFXActiveEffect> active = new ArrayList<>();
 	private final List<ScheduledPlay> scheduled = new ArrayList<>();
+	/**
+	 * Inverted index: entity UUID → active entity effects targeting it. Rebuilt once per
+	 * {@link #update()} so per-entity lookups during rendering are O(1) instead of scanning
+	 * every active effect. Read-only from the render thread between updates.
+	 */
+	private Map<UUID, List<VFXActiveEffect>> entityEffectsIndex = Map.of();
 	private final AtomicLong instanceCounter = new AtomicLong();
 	private float clock;
 
@@ -91,6 +98,24 @@ public class VFXEffectManager {
 		for (VFXActiveEffect effect : this.active) {
 			effect.update(this.clock);
 		}
+		this.rebuildEntityEffectsIndex();
+	}
+
+	/**
+	 * Rebuilds the entity UUID → effects inverted index from the current {@link #active} list.
+	 * Only entity tint/outline effects with at least one target UUID are indexed.
+	 */
+	private void rebuildEntityEffectsIndex() {
+		Map<UUID, List<VFXActiveEffect>> index = new HashMap<>();
+		for (VFXActiveEffect effect : this.active) {
+			if (effect.getType() != VFXEffectType.ENTITY_TINT && effect.getType() != VFXEffectType.ENTITY_OUTLINE) {
+				continue;
+			}
+			for (UUID uuid : effect.getEntityUuids()) {
+				index.computeIfAbsent(uuid, ignored -> new ArrayList<>()).add(effect);
+			}
+		}
+		this.entityEffectsIndex = Map.copyOf(index);
 	}
 
 	/**
@@ -381,12 +406,12 @@ public class VFXEffectManager {
 	}
 
 	/**
-	 * The active entity effects targeting the given entity UUID (entity tint/outline).
+	 * The active entity effects targeting the given entity UUID (entity tint/outline). O(1)
+	 * lookup via the inverted index rebuilt each {@link #update()}.
 	 */
 	public List<VFXActiveEffect> getActiveEntityEffects(final UUID uuid) {
-		return this.active.stream()
-			.filter(e -> (e.getType() == VFXEffectType.ENTITY_TINT || e.getType() == VFXEffectType.ENTITY_OUTLINE) && e.getEntityUuids().contains(uuid))
-			.toList();
+		List<VFXActiveEffect> effects = this.entityEffectsIndex.get(uuid);
+		return effects != null ? List.copyOf(effects) : List.of();
 	}
 
 	public List<VFXActiveEffect> getActiveShakes() {

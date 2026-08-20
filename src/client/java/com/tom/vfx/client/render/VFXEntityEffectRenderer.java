@@ -74,43 +74,43 @@ public final class VFXEntityEffectRenderer {
 	}
 
 	// Pipeline per (mode, through_blocks) combination; RenderTypes then memoize per entity texture.
-	private static final RenderPipeline TINT_MULTIPLY_VISIBLE = entityFxPipeline("tint_multiply_visible", CompareOp.ALWAYS_PASS, "TINT_MULTIPLY");
-	private static final RenderPipeline TINT_MULTIPLY_OCCLUDED = entityFxPipeline("tint_multiply_occluded", CompareOp.LESS_THAN_OR_EQUAL, "TINT_MULTIPLY");
-	private static final RenderPipeline TINT_MASK_VISIBLE = entityFxPipeline("tint_mask_visible", CompareOp.ALWAYS_PASS, "TINT_MASK");
-	private static final RenderPipeline TINT_MASK_OCCLUDED = entityFxPipeline("tint_mask_occluded", CompareOp.LESS_THAN_OR_EQUAL, "TINT_MASK");
-	private static final RenderPipeline OUTLINE_VISIBLE = entityFxPipeline("outline_visible", CompareOp.ALWAYS_PASS, "OUTLINE");
-	private static final RenderPipeline OUTLINE_OCCLUDED = entityFxPipeline("outline_occluded", CompareOp.LESS_THAN_OR_EQUAL, "OUTLINE");
+	private static final RenderPipeline TINT_MULTIPLY_VISIBLE_P = entityFxPipeline("tint_multiply_visible", CompareOp.ALWAYS_PASS, "TINT_MULTIPLY");
+	private static final RenderPipeline TINT_MULTIPLY_OCCLUDED_P = entityFxPipeline("tint_multiply_occluded", CompareOp.LESS_THAN_OR_EQUAL, "TINT_MULTIPLY");
+	private static final RenderPipeline TINT_MASK_VISIBLE_P = entityFxPipeline("tint_mask_visible", CompareOp.ALWAYS_PASS, "TINT_MASK");
+	private static final RenderPipeline TINT_MASK_OCCLUDED_P = entityFxPipeline("tint_mask_occluded", CompareOp.LESS_THAN_OR_EQUAL, "TINT_MASK");
+	private static final RenderPipeline OUTLINE_VISIBLE_P = entityFxPipeline("outline_visible", CompareOp.ALWAYS_PASS, "OUTLINE");
+	private static final RenderPipeline OUTLINE_OCCLUDED_P = entityFxPipeline("outline_occluded", CompareOp.LESS_THAN_OR_EQUAL, "OUTLINE");
 
-	private static final Map<Identifier, RenderType> TINT_MULTIPLY_VISIBLE_TYPES = new HashMap<>();
-	private static final Map<Identifier, RenderType> TINT_MULTIPLY_OCCLUDED_TYPES = new HashMap<>();
-	private static final Map<Identifier, RenderType> TINT_MASK_VISIBLE_TYPES = new HashMap<>();
-	private static final Map<Identifier, RenderType> TINT_MASK_OCCLUDED_TYPES = new HashMap<>();
-	private static final Map<Identifier, RenderType> OUTLINE_VISIBLE_TYPES = new HashMap<>();
-	private static final Map<Identifier, RenderType> OUTLINE_OCCLUDED_TYPES = new HashMap<>();
+	/**
+	 * One concrete render variant: its pipeline, the base render-type name and the memoized
+	 * per-texture render types. The {@code types} map is accessed only from the render thread
+	 * (submitted during entity rendering), so a plain {@link HashMap} is safe.
+	 */
+	private record FxType(RenderPipeline pipeline, String name, Map<Identifier, RenderType> types) {
+		RenderType forTexture(final Identifier texture) {
+			return this.types.computeIfAbsent(texture, id -> RenderType.create(
+				this.name + ":" + id,
+				RenderSetup.builder(this.pipeline).withTexture("Sampler0", id).createRenderSetup()
+			));
+		}
+	}
+
+	private static final FxType TINT_MULTIPLY_VISIBLE = new FxType(TINT_MULTIPLY_VISIBLE_P, "tompfx_entity_tint_multiply_visible", new HashMap<>());
+	private static final FxType TINT_MULTIPLY_OCCLUDED = new FxType(TINT_MULTIPLY_OCCLUDED_P, "tompfx_entity_tint_multiply_occluded", new HashMap<>());
+	private static final FxType TINT_MASK_VISIBLE = new FxType(TINT_MASK_VISIBLE_P, "tompfx_entity_tint_mask_visible", new HashMap<>());
+	private static final FxType TINT_MASK_OCCLUDED = new FxType(TINT_MASK_OCCLUDED_P, "tompfx_entity_tint_mask_occluded", new HashMap<>());
+	private static final FxType OUTLINE_VISIBLE = new FxType(OUTLINE_VISIBLE_P, "tompfx_entity_outline_visible", new HashMap<>());
+	private static final FxType OUTLINE_OCCLUDED = new FxType(OUTLINE_OCCLUDED_P, "tompfx_entity_outline_occluded", new HashMap<>());
 
 	private VFXEntityEffectRenderer() {
 	}
 
 	/**
 	 * Forces class initialisation (pipeline registration) at client startup, before the first
-	 * resource reload precompiles the shaders. Idempotent.
+	 * resource reload precompiles the shaders. Invoking this static method triggers the class
+	 * initializer, which runs {@code RenderPipelines.register(...)} for every pipeline.
 	 */
 	public static void register() {
-		RenderPipeline a = TINT_MULTIPLY_VISIBLE;
-		RenderPipeline b = OUTLINE_OCCLUDED;
-	}
-
-	/** Creates (or reuses) the render type for a texture, binding it as Sampler0. */
-	private static RenderType typeFor(
-		final Map<Identifier, RenderType> map,
-		final String name,
-		final RenderPipeline pipeline,
-		final Identifier texture
-	) {
-		return map.computeIfAbsent(texture, id -> RenderType.create(
-			name + ":" + id,
-			RenderSetup.builder(pipeline).withTexture("Sampler0", id).createRenderSetup()
-		));
 	}
 
 	private static <S extends LivingEntityRenderState> void submit(
@@ -142,19 +142,10 @@ public final class VFXEntityEffectRenderer {
 		}
 		boolean through = effect.getParam("through_blocks", 1.0F) >= 0.5F;
 		boolean multiply = effect.getParam("texture", 1.0F) >= 0.5F;
-		Map<Identifier, RenderType> map;
-		if (multiply) {
-			map = through ? TINT_MULTIPLY_VISIBLE_TYPES : TINT_MULTIPLY_OCCLUDED_TYPES;
-		} else {
-			map = through ? TINT_MASK_VISIBLE_TYPES : TINT_MASK_OCCLUDED_TYPES;
-		}
-		String base = multiply
-			? (through ? "tompfx_entity_tint_multiply_visible" : "tompfx_entity_tint_multiply_occluded")
-			: (through ? "tompfx_entity_tint_mask_visible" : "tompfx_entity_tint_mask_occluded");
-		RenderPipeline pipeline = multiply
+		FxType fx = multiply
 			? (through ? TINT_MULTIPLY_VISIBLE : TINT_MULTIPLY_OCCLUDED)
 			: (through ? TINT_MASK_VISIBLE : TINT_MASK_OCCLUDED);
-		submit(state, poseStack, submitNodeCollector, model, typeFor(map, base, pipeline, texture), argb(effect, alpha));
+		submit(state, poseStack, submitNodeCollector, model, fx.forTexture(texture), argb(effect, alpha));
 	}
 
 	/**
@@ -179,18 +170,18 @@ public final class VFXEntityEffectRenderer {
 		boolean through = effect.getParam("through_blocks", 0.0F) >= 0.5F;
 		float width = Mth.clamp(effect.getParam("width", 0.05F), 0.0F, 1.0F);
 		int color = argb(effect, alpha);
-		Map<Identifier, RenderType> map = through ? OUTLINE_VISIBLE_TYPES : OUTLINE_OCCLUDED_TYPES;
-		String base = through ? "tompfx_entity_outline_visible" : "tompfx_entity_outline_occluded";
-		RenderPipeline pipeline = through ? OUTLINE_VISIBLE : OUTLINE_OCCLUDED;
-		RenderType renderType = typeFor(map, base, pipeline, texture);
+		FxType fx = through ? OUTLINE_VISIBLE : OUTLINE_OCCLUDED;
+		RenderType renderType = fx.forTexture(texture);
 		// Thickness in world units: each cube face grows outwards by `width`, independent of the
 		// cube's own size (see emitOutlineCube).
 		float thickness = width;
 
+		// Animate the model now (submit time) so the deferred custom-geometry draw reads the
+		// correct pose for this state/frame without calling setupAnim inside the draw callback
+		// (which would mutate shared model state while drawing). Vanilla's own body pass later
+		// sets the same pose for the same state, so this is idempotent.
+		model.setupAnim(state);
 		submitNodeCollector.submitCustomGeometry(poseStack, renderType, (pose, buffer) -> {
-			// The model may have been animated by the vanilla submit earlier this frame, but the
-			// custom-geometry pass is deferred, so ensure the pose is current before traversing.
-			model.setupAnim(state);
 			PoseStack stack = new PoseStack();
 			stack.last().set(pose);
 			model.root().visit(stack, (partPose, path, cubeIndex, cube) ->
@@ -238,10 +229,13 @@ public final class VFXEntityEffectRenderer {
 		}
 	}
 
+	/** Minimum half-extent (world units) below which a cube axis is treated as degenerate/flat. */
+	private static final float MIN_HALF_EXTENT = 1.0E-4F;
+
 	/** Scale factor that grows each face of a cube of the given half-extent by {@code thickness}. */
 	private static float growth(final float halfExtent, final float thickness) {
 		// Degenerate (flat) cubes along an axis are not expanded on that axis to avoid exploding.
-		return halfExtent > 1.0E-4F ? 1.0F + thickness / halfExtent : 1.0F;
+		return halfExtent > MIN_HALF_EXTENT ? 1.0F + thickness / halfExtent : 1.0F;
 	}
 
 	private static int argb(final VFXActiveEffect effect, final float alpha) {
