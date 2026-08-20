@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.core.BlockPos;
 import net.minecraft.client.Minecraft;
@@ -165,8 +166,9 @@ public class VFXEffectManager {
 			? (loop ? definition.getDefaultDuration() : Integer.MAX_VALUE)
 			: (persistentFromServer ? Integer.MAX_VALUE : (clampedTicks > 0 ? clampedTicks : (definition != null ? definition.getDefaultDuration() : 40)));
 		EasingFunction effectiveEasing = easing != null ? easing : (definition != null ? definition.getDefaultEasing() : EasingFunction.builtIn(EasingType.LINEAR));
+		long instanceSeed = ThreadLocalRandom.current().nextLong();
 		VFXTimeline timeline = definition != null
-			? definition.createTimeline(duration, params, effectiveEasing)
+			? definition.createTimeline(duration, params, effectiveEasing, instanceSeed)
 			: createConstantTimeline(duration, params);
 
 		int fadeTicks = definition != null ? definition.getFadeTicks() : 0;
@@ -183,7 +185,7 @@ public class VFXEffectManager {
 			double pz = position != null ? position.z() : payloadPos.getZ();
 			timeline.rebindPositions(px, py, pz);
 		}
-		VFXActiveEffect effect = new VFXActiveEffect(effectId, type, id, this.clock, timeline, fadeTicks, loop, positions);
+		VFXActiveEffect effect = new VFXActiveEffect(effectId, type, id, instanceSeed, this.clock, timeline, fadeTicks, loop, positions);
 		// Same-id replays stack as independent instances (e.g. several dents at once);
 		// /vfx stop removes every instance of the id, stop(instanceId) removes one. MAX_ACTIVE_EFFECTS caps the total.
 		while (this.active.size() >= MAX_ACTIVE_EFFECTS) {

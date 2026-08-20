@@ -112,6 +112,19 @@ public final class VFXWorldBindings {
 		};
 	}
 
+	/**
+	 * Returns the current camera world position as {@code [x, y, z]}, or {@code [0,0,0]} when no
+	 * camera state is available. Used to supply {@code x}/{@code y}/{@code z} to math-expression
+	 * parameters ({@code expr}).
+	 */
+	public static float[] cameraPosition() {
+		Frame current = frame;
+		if (current == null) {
+			return new float[]{0.0F, 0.0F, 0.0F};
+		}
+		return new float[]{current.camX(), current.camY(), current.camZ()};
+	}
+
 	private static float evaluatePlayer(final BoundParam binding, final float fallback) {
 		PlayerState state = playerState;
 		if (state == null) {

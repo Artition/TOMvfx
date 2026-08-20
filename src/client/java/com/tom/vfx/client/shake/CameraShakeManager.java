@@ -1,9 +1,9 @@
 package com.tom.vfx.client.shake;
 
 import com.tom.vfx.client.effect.VFXEffectManager;
-import com.tom.vfx.client.noise.SimplexNoise;
 import com.tom.vfx.effect.EasingType;
 import com.tom.vfx.effect.VFXActiveEffect;
+import com.tom.vfx.noise.SimplexNoise;
 import net.minecraft.util.Mth;
 
 /**
@@ -48,7 +48,9 @@ public final class CameraShakeManager {
 		float elapsedTicks = effect.getElapsed();
 		double timeSeconds = elapsedTicks / 20.0;
 		float envelope = EasingType.SMOOTHSTEP.apply(1.0F - effect.getProgress());
-		double phase = effect.getStartTime();
+		// A per-instance seed shifts the noise domain, so every /vfx play of the same shake
+		// produces a different, non-repeating pattern.
+		double phase = effect.getStartTime() + effect.getInstanceSeed() * 0.0001;
 
 		double n1 = SimplexNoise.noise(timeSeconds * FREQUENCY, phase, 0.0);
 		double n2 = SimplexNoise.noise(0.0, timeSeconds * FREQUENCY, phase);

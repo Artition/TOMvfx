@@ -1,6 +1,7 @@
 package com.tom.vfx.effect;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 
@@ -13,6 +14,8 @@ public class VFXActiveEffect {
 	private final Identifier id;
 	private final VFXEffectType type;
 	private final long instanceId;
+	/** Per-instance random seed so that generated noise (camera shake, {@code expr} params) differs between calls. */
+	private final long instanceSeed;
 	private final float startTime;
 	private final VFXTimeline timeline;
 	private final int fadeTicks;
@@ -31,7 +34,7 @@ public class VFXActiveEffect {
 	 * @param timeline  pre-built animation timeline
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final float startTime, final VFXTimeline timeline) {
-		this(id, type, 0L, startTime, timeline, 0, false, List.of());
+		this(id, type, 0L, ThreadLocalRandom.current().nextLong(), startTime, timeline, 0, false, List.of());
 	}
 
 	/**
@@ -41,14 +44,14 @@ public class VFXActiveEffect {
 	 * @param loop      true when the timeline restarts once it reaches its duration
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop) {
-		this(id, type, 0L, startTime, timeline, fadeTicks, loop, List.of());
+		this(id, type, 0L, ThreadLocalRandom.current().nextLong(), startTime, timeline, fadeTicks, loop, List.of());
 	}
 
 	/**
 	 * Creates a new effect instance with fade, looping and world positions.
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop, final List<BlockPos> positions) {
-		this(id, type, 0L, startTime, timeline, fadeTicks, loop, positions);
+		this(id, type, 0L, ThreadLocalRandom.current().nextLong(), startTime, timeline, fadeTicks, loop, positions);
 	}
 
 	/**
@@ -57,9 +60,19 @@ public class VFXActiveEffect {
 	 * stop action).
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final long instanceId, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop, final List<BlockPos> positions) {
+		this(id, type, instanceId, ThreadLocalRandom.current().nextLong(), startTime, timeline, fadeTicks, loop, positions);
+	}
+
+	/**
+	 * Creates a new effect instance with a caller-assigned instance id and noise seed.
+	 *
+	 * @param instanceSeed per-instance seed used to drive generated noise (camera shake, {@code expr})
+	 */
+	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final long instanceId, final long instanceSeed, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop, final List<BlockPos> positions) {
 		this.id = id;
 		this.type = type;
 		this.instanceId = instanceId;
+		this.instanceSeed = instanceSeed;
 		this.startTime = startTime;
 		this.timeline = timeline;
 		this.fadeTicks = fadeTicks;
@@ -155,6 +168,10 @@ public class VFXActiveEffect {
 
 	public long getInstanceId() {
 		return this.instanceId;
+	}
+
+	public long getInstanceSeed() {
+		return this.instanceSeed;
 	}
 
 	public VFXEffectType getType() {

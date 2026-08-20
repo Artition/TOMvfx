@@ -13,6 +13,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.GsonHelper;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A datapack-defined VFX effect loaded from {@code data/<namespace>/vfx/<effect>.json}.
@@ -20,6 +22,7 @@ import org.jspecify.annotations.Nullable;
  * a set of parameters (either constant values or start/end animated pairs).
  */
 public class VFXDefinition {
+	private static final Logger LOGGER = LoggerFactory.getLogger("tompfx/vfx-def");
 	private final Identifier id;
 	private final VFXEffectType type;
 	private final int defaultDuration;
@@ -261,6 +264,8 @@ public class VFXDefinition {
 			ParamSpec spec;
 			if (object.has("bind")) {
 				spec = ParamSpec.bound(parseBound(object));
+			} else if (object.has("expr")) {
+				spec = ParamSpec.expression(GsonHelper.getAsString(object, "expr"));
 			} else if (object.has("keyframes")) {
 				spec = ParamSpec.keyframed(parseKeyframes(object));
 			} else if (object.has("start") && object.has("end")) {
@@ -270,7 +275,7 @@ public class VFXDefinition {
 			} else if (object.has("value")) {
 				spec = ParamSpec.constant(GsonHelper.getAsFloat(object, "value"));
 			} else {
-				throw new IllegalArgumentException("Animated parameter must define 'start' and 'end', 'keyframes' or 'value': " + element);
+				throw new IllegalArgumentException("Animated parameter must define 'start' and 'end', 'keyframes', 'expr' or 'value': " + element);
 			}
 			if (object.has("multiply")) {
 				spec = spec.multiplied(parseBound(GsonHelper.getAsJsonObject(object, "multiply")));
@@ -327,12 +332,15 @@ public class VFXDefinition {
 	 * @param durationTicks the effective duration in ticks (payload value, or the definition default)
 	 * @param overrides     user-supplied constant parameter overrides (may be empty)
 	 * @param easing        the effective easing curve (payload value, or the definition default)
+	 * @param instanceSeed  per-instance seed used to vary {@code random()}/{@code noise()} inside
+	 *                      {@code expr} parameters between instances
 	 */
-	public VFXTimeline createTimeline(final float durationTicks, final Map<String, Float> overrides, final EasingFunction easing) {
+	public VFXTimeline createTimeline(final float durationTicks, final Map<String, Float> overrides, final EasingFunction easing, final long instanceSeed) {
 		float duration = Math.max(1.0F, durationTicks);
 		Map<String, AnimatedValue> values = new LinkedHashMap<>();
 		Map<String, BoundParam> bindings = new LinkedHashMap<>();
 		Map<String, BoundParam> multipliers = new LinkedHashMap<>();
+		Map<String, MathExpression> expressions = new LinkedHashMap<>();
 		for (Map.Entry<String, ParamSpec> entry : this.params.entrySet()) {
 			String name = entry.getKey();
 			ParamSpec spec = entry.getValue();
@@ -341,6 +349,14 @@ public class VFXDefinition {
 				values.put(name, AnimatedValue.constant(override));
 			} else if (spec.bound() != null) {
 				bindings.put(name, spec.bound());
+			} else if (spec.exprSource() != null) {
+				MathExpression expr = MathExpression.compile(instanceSeed, spec.exprSource());
+				if (expr == null) {
+					LOGGER.warn("Invalid expr for parameter '{}' in '{}': '{}'", name, this.id, spec.exprSource());
+					values.put(name, AnimatedValue.constant(0.0F));
+				} else {
+					expressions.put(name, expr);
+				}
 			} else if (!spec.keyframes().isEmpty()) {
 				values.put(name, AnimatedValue.fromKeyframes(spec.keyframes().toArray(new Keyframe[0])));
 			} else if (spec.animated()) {
@@ -352,7 +368,7 @@ public class VFXDefinition {
 				multipliers.put(name, spec.multiply());
 			}
 		}
-		return new VFXTimeline(duration, values, bindings, multipliers);
+		return new VFXTimeline(duration, values, bindings, multipliers, expressions);
 	}
 
 	/**
@@ -360,7 +376,7 @@ public class VFXDefinition {
 	 */
 	public float getParam(final String name, final float fallback) {
 		ParamSpec spec = this.params.get(name);
-		if (spec == null || spec.animated() || !spec.keyframes().isEmpty() || spec.bound() != null) {
+		if (spec == null || spec.animated() || !spec.keyframes().isEmpty() || spec.bound() != null || spec.exprSource() != null) {
 			return fallback;
 		}
 		return spec.constant();
@@ -431,40 +447,47 @@ public class VFXDefinition {
 
 	/**
 	 * A single parameter specification: a constant value, an animated start/end pair, a list
-	 * of keyframes (in ticks relative to the effect start), a world binding and/or a
-	 * multiplicative world binding ({@link #multiply()}) applied on top of the base value.
+	 * of keyframes (in ticks relative to the effect start), a compiled mathematical expression,
+	 * a world binding and/or a multiplicative world binding ({@link #multiply()}) applied on top
+	 * of the base value.
 	 *
 	 * @param animated  true when the parameter animates between {@link #start()} and {@link #end()}
 	 * @param constant  constant value (when not animated)
 	 * @param start     start value (when animated)
 	 * @param end       end value (when animated)
 	 * @param keyframes keyframe list (when keyframed); empty otherwise
+	 * @param exprSource the raw {@code "expr"} source string (compiled per instance with its seed);
+	 *                   {@code null} when not used
 	 * @param bound     world binding (when bound); {@code null} otherwise
 	 * @param multiply  world binding whose evaluated value is multiplied onto the base value
-	 *                  (e.g. keyframes Г— proximity); {@code null} when not used
+	 *                  (e.g. keyframes × proximity); {@code null} when not used
 	 */
-	public record ParamSpec(boolean animated, float constant, float start, float end, List<Keyframe> keyframes, BoundParam bound, BoundParam multiply) {
+	public record ParamSpec(boolean animated, float constant, float start, float end, List<Keyframe> keyframes, String exprSource, BoundParam bound, BoundParam multiply) {
 		public static ParamSpec constant(final float value) {
-			return new ParamSpec(false, value, 0.0F, 0.0F, List.of(), null, null);
+			return new ParamSpec(false, value, 0.0F, 0.0F, List.of(), null, null, null);
 		}
 
 		public static ParamSpec animated(final float start, final float end) {
-			return new ParamSpec(true, 0.0F, start, end, List.of(), null, null);
+			return new ParamSpec(true, 0.0F, start, end, List.of(), null, null, null);
 		}
 
 		public static ParamSpec keyframed(final List<Keyframe> keyframes) {
-			return new ParamSpec(false, 0.0F, 0.0F, 0.0F, List.copyOf(keyframes), null, null);
+			return new ParamSpec(false, 0.0F, 0.0F, 0.0F, List.copyOf(keyframes), null, null, null);
+		}
+
+		public static ParamSpec expression(final String exprSource) {
+			return new ParamSpec(false, 0.0F, 0.0F, 0.0F, List.of(), exprSource, null, null);
 		}
 
 		public static ParamSpec bound(final BoundParam binding) {
-			return new ParamSpec(false, 0.0F, 0.0F, 0.0F, List.of(), binding, null);
+			return new ParamSpec(false, 0.0F, 0.0F, 0.0F, List.of(), null, binding, null);
 		}
 
 		/**
 		 * Returns a copy of this spec with the given multiplicative binding attached.
 		 */
 		public ParamSpec multiplied(final BoundParam multiplier) {
-			return new ParamSpec(this.animated, this.constant, this.start, this.end, this.keyframes, this.bound, multiplier);
+			return new ParamSpec(this.animated, this.constant, this.start, this.end, this.keyframes, this.exprSource, this.bound, multiplier);
 		}
 	}
 }

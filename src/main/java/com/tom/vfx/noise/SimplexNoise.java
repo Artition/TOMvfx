@@ -1,4 +1,4 @@
-package com.tom.vfx.client.noise;
+package com.tom.vfx.noise;
 
 /**
  * Deterministic 3D simplex noise (Stefan Gustavson's implementation). Used to drive the

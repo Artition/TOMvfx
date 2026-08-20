@@ -23,6 +23,7 @@ public class VFXTimeline {
 	private final Map<String, AnimatedValue> values;
 	private Map<String, BoundParam> bindings;
 	private Map<String, BoundParam> multipliers;
+	private final Map<String, MathExpression> expressions;
 	private final Map<String, AnimatedValue> overrides = new LinkedHashMap<>();
 	private float elapsed;
 
@@ -33,7 +34,7 @@ public class VFXTimeline {
 	 * @param values   named animated values
 	 */
 	public VFXTimeline(final float duration, final Map<String, AnimatedValue> values) {
-		this(duration, values, Map.of(), Map.of());
+		this(duration, values, Map.of(), Map.of(), Map.of());
 	}
 
 	/**
@@ -44,7 +45,7 @@ public class VFXTimeline {
 	 * @param bindings named world bindings (evaluated per frame against the camera)
 	 */
 	public VFXTimeline(final float duration, final Map<String, AnimatedValue> values, final Map<String, BoundParam> bindings) {
-		this(duration, values, bindings, Map.of());
+		this(duration, values, bindings, Map.of(), Map.of());
 	}
 
 	/**
@@ -57,10 +58,26 @@ public class VFXTimeline {
 	 *                    of the same parameter (e.g. keyframes × proximity falloff)
 	 */
 	public VFXTimeline(final float duration, final Map<String, AnimatedValue> values, final Map<String, BoundParam> bindings, final Map<String, BoundParam> multipliers) {
+		this(duration, values, bindings, multipliers, Map.of());
+	}
+
+	/**
+	 * Creates a timeline with time-animated values, world bindings, multiplicative modifiers and
+	 * compiled math expressions.
+	 *
+	 * @param duration    total duration in ticks
+	 * @param values      named animated values
+	 * @param bindings    named world bindings (evaluated per frame against the camera)
+	 * @param multipliers named bindings whose evaluated value is multiplied onto the base value
+	 *                    of the same parameter (e.g. keyframes × proximity falloff)
+	 * @param expressions named compiled expressions (evaluated with t/x/y/z per frame)
+	 */
+	public VFXTimeline(final float duration, final Map<String, AnimatedValue> values, final Map<String, BoundParam> bindings, final Map<String, BoundParam> multipliers, final Map<String, MathExpression> expressions) {
 		this.duration = duration;
 		this.values = Collections.unmodifiableMap(new LinkedHashMap<>(values));
 		this.bindings = Collections.unmodifiableMap(new LinkedHashMap<>(bindings));
 		this.multipliers = Collections.unmodifiableMap(new LinkedHashMap<>(multipliers));
+		this.expressions = Collections.unmodifiableMap(new LinkedHashMap<>(expressions));
 		this.elapsed = 0.0F;
 	}
 
@@ -96,6 +113,11 @@ public class VFXTimeline {
 		if (binding != null) {
 			base = VFXWorldBindings.evaluate(binding, fallback);
 		} else {
+			MathExpression expr = this.expressions.get(name);
+			if (expr != null) {
+				float[] pos = VFXWorldBindings.cameraPosition();
+				return expr.eval(this.elapsed, pos[0], pos[1], pos[2]);
+			}
 			AnimatedValue value = this.values.get(name);
 			base = value == null ? fallback : value.get();
 		}
@@ -139,6 +161,10 @@ public class VFXTimeline {
 
 	public Map<String, BoundParam> getMultipliers() {
 		return this.multipliers;
+	}
+
+	public Map<String, MathExpression> getExpressions() {
+		return this.expressions;
 	}
 
 	/**

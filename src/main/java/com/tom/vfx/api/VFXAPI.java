@@ -176,7 +176,7 @@ public final class VFXAPI {
 		Map<String, Float> params = new HashMap<>();
 		for (Map.Entry<String, VFXDefinition.ParamSpec> entry : definition.getParams().entrySet()) {
 			VFXDefinition.ParamSpec spec = entry.getValue();
-			if (!spec.animated() && spec.keyframes().isEmpty() && spec.bound() == null && spec.multiply() == null) {
+			if (!spec.animated() && spec.keyframes().isEmpty() && spec.bound() == null && spec.multiply() == null && spec.exprSource() == null) {
 				params.put(entry.getKey(), spec.constant());
 			}
 		}
