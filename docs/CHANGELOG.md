@@ -3,6 +3,8 @@
 Формат — по мотивам [Keep a Changelog](https://keepachangelog.com/). Версии ниже — это версии гайда/фич-набора мода (как они шли исторически, см. `docs/GUIDE.md`), а не git-теги релиза: пока у проекта нет отдельного релизного версионирования (`gradle.properties` держит фиксированный `mod_version=1.0.0`). Новые записи добавляй сверху, в PR вместе с изменением поведения.
 
 ## [Unreleased]
+### Fixed
+- **Datapack VFX-эффекты и кривые теперь синхронизируются с клиентами выделенного сервера.** Раньше `VFXDefinitionManager`/`VFXCurveManager` грузили определения только с `PackType.SERVER_DATA`, поэтому клиент dedicated-сервера держал лишь встроенные `tompfx:*` и игнорировал кастомные датапак-эффекты (`Ignoring unknown VFX effect`). Добавлен сервер→клиент пакет `tompfx:vfx_sync` (сырые JSON определений и кривых), который отправляется каждому игроку при входе (`ServerLifecycleEvents.SYNC_DATA_PACK_CONTENTS`) и всем после `/reload` (`END_DATA_PACK_RELOAD`); клиент мержит их поверх встроенных эффектов.
 ### Added
 - Прямая передача мировой позиции в `VFXAPI.sendEffect(player, effectId, Vec3 worldPos, ...)` — клиент перепривязывает пространственные биндинги (`screen_x/y`, `proximity`) к точке без хака с `pos_x/y/z`.
 - Поле `position` и `instanceId` в пакете `tompfx:vfx_trigger` — остановка конкретного экземпляра эффекта через `sendStop(player, effectId, instanceId)`.
@@ -13,6 +15,7 @@
 - **BREAKING**: `PROTOCOL_VERSION` 2 → 4: пакет несёт опциональную позицию и instance id; поле easing теперь имя строкой (встроенное или id кастомной кривой).
 - `/vfx playat` переведён на новое поле позиции пакета (оставлена обратная совместимость со старым трюком через `pos_x/y/z`).
 - `VFXTimeline` поддерживает мультипликаторы параметров наравне с bindings (перепривязка позиции перенастраивает и их).
+- `VFXDefinitionManager`/`VFXCurveManager` хранят сырые JSON-источники для сетевой синхронизации; парсинг вынесен в `reload()`.
 ### Fixed
 - `VFXDefinitionManager.prepare()` больше не прерывает загрузку всех VFX-определений из-за одного некорректного файла датапака — расширен `catch` до `IllegalArgumentException` (раньше туда попадали, например, неизвестный `type` или битый `positions`).
 ### Changed

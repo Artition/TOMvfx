@@ -23,14 +23,16 @@ import org.slf4j.LoggerFactory;
 /**
  * Registry of custom easing curves from datapack {@code data/<namespace>/vfx_curves/<name>.json}
  * files, refreshed on every (server) data reload together with {@link VFXDefinitionManager}.
- * One malformed curve file is logged and skipped, the rest keep loading.
+ * On a dedicated server the raw curves are sent to connecting clients via {@code VFXSyncPayload}
+ * (see {@link #applySynced(Map)}). One malformed curve file is logged and skipped, the rest keep loading.
  */
-public class VFXCurveManager extends SimplePreparableReloadListener<Map<Identifier, VFXCurve>> {
+public class VFXCurveManager extends SimplePreparableReloadListener<Map<Identifier, String>> {
 	private static final Logger LOGGER = LoggerFactory.getLogger("tompfx/vfx-curves");
 	private static final FileToIdConverter FILE_CONVERTER = FileToIdConverter.json("vfx_curves");
 
 	private static final VFXCurveManager INSTANCE = new VFXCurveManager();
 
+	private volatile Map<Identifier, String> rawCurves = Map.of();
 	private volatile Map<Identifier, VFXCurve> curves = Map.of();
 
 	private VFXCurveManager() {
@@ -52,14 +54,47 @@ public class VFXCurveManager extends SimplePreparableReloadListener<Map<Identifi
 		return Map.copyOf(this.curves);
 	}
 
+	/**
+	 * Raw JSON source of the datapack-defined curves (used by the server to synchronize them
+	 * to clients over {@code VFXSyncPayload}).
+	 */
+	public Map<Identifier, String> getRawCurves() {
+		return this.rawCurves;
+	}
+
 	@Override
-	protected Map<Identifier, VFXCurve> prepare(final ResourceManager manager, final ProfilerFiller profiler) {
-		Map<Identifier, VFXCurve> loaded = new HashMap<>();
+	protected Map<Identifier, String> prepare(final ResourceManager manager, final ProfilerFiller profiler) {
+		Map<Identifier, String> loaded = new HashMap<>();
 		for (Entry<Identifier, Resource> entry : FILE_CONVERTER.listMatchingResources(manager).entrySet()) {
 			Identifier fileId = entry.getKey();
 			Identifier curveId = FILE_CONVERTER.fileToId(fileId);
 			try (Reader reader = entry.getValue().openAsReader()) {
-				JsonObject json = StrictJsonParser.parse(reader).getAsJsonObject();
+				StringBuilder sb = new StringBuilder();
+				char[] buf = new char[4096];
+				int n;
+				while ((n = reader.read(buf)) != -1) {
+					sb.append(buf, 0, n);
+				}
+				loaded.put(curveId, sb.toString());
+			} catch (IOException e) {
+				LOGGER.error("Couldn't read VFX curve '{}' from '{}'", curveId, fileId, e);
+			}
+		}
+		return loaded;
+	}
+
+	@Override
+	protected void apply(final Map<Identifier, String> loaded, final ResourceManager manager, final ProfilerFiller profiler) {
+		this.rawCurves = Map.copyOf(loaded);
+		this.curves = reload(loaded);
+		LOGGER.info("Loaded {} VFX curves from datapacks", loaded.size());
+	}
+
+	private Map<Identifier, VFXCurve> reload(final Map<Identifier, String> raw) {
+		Map<Identifier, VFXCurve> result = new HashMap<>();
+		for (Entry<Identifier, String> entry : raw.entrySet()) {
+			try {
+				JsonObject json = StrictJsonParser.parse(entry.getValue()).getAsJsonObject();
 				float[] ts = new float[0];
 				float[] vs = new float[0];
 				if (json.has("points")) {
@@ -81,17 +116,19 @@ public class VFXCurveManager extends SimplePreparableReloadListener<Map<Identifi
 						throw new IllegalArgumentException("Curve times must start at 0 and end at 1");
 					}
 				}
-				loaded.put(curveId, new VFXCurve(curveId, EasingFunction.curve(curveId.toString(), ts, vs)));
-			} catch (JsonParseException | IllegalStateException | IllegalArgumentException | IOException e) {
-				LOGGER.error("Couldn't parse VFX curve '{}' from '{}'", curveId, fileId, e);
+				result.put(entry.getKey(), new VFXCurve(entry.getKey(), EasingFunction.curve(entry.getKey().toString(), ts, vs)));
+			} catch (JsonParseException | IllegalStateException | IllegalArgumentException e) {
+				LOGGER.error("Couldn't parse VFX curve '{}'", entry.getKey(), e);
 			}
 		}
-		return loaded;
+		return Map.copyOf(result);
 	}
 
-	@Override
-	protected void apply(final Map<Identifier, VFXCurve> loaded, final ResourceManager manager, final ProfilerFiller profiler) {
-		this.curves = Map.copyOf(loaded);
-		LOGGER.info("Loaded {} VFX curves from datapacks", loaded.size());
+	/**
+	 * Merges curves received from the server (over {@code VFXSyncPayload}) on the client.
+	 */
+	public void applySynced(final Map<Identifier, String> synced) {
+		this.rawCurves = Map.copyOf(synced);
+		this.curves = reload(synced);
 	}
 }

@@ -4,13 +4,20 @@ import com.tom.vfx.command.ParamMapArgument;
 import com.tom.vfx.command.VFXCommand;
 import com.tom.vfx.effect.VFXCurveManager;
 import com.tom.vfx.network.VFXPayloads;
+import com.tom.vfx.network.VFXSyncPayload;
 import com.tom.vfx.resource.VFXDefinitionManager;
+import java.util.HashMap;
+import java.util.Map;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.ArgumentTypeRegistry;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.minecraft.commands.synchronization.SingletonArgumentInfo;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.PackType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +40,31 @@ public class VFXMod implements ModInitializer {
 		// single player rendering can resolve datapack-defined effects and curves.
 		registerVfxDefinitionReloadListener();
 		registerVfxCurveReloadListener();
+
+		// Sync datapack VFX definitions and curves to clients: on join (vanilla data-pack content
+		// sync) and on /reload, so custom (datapack) effects work on dedicated servers.
+		ServerLifecycleEvents.SYNC_DATA_PACK_CONTENTS.register(VFXMod::syncToPlayer);
+		ServerLifecycleEvents.END_DATA_PACK_RELOAD.register(VFXMod::syncToAll);
+	}
+
+	private static void syncToPlayer(final ServerPlayer player, final boolean joined) {
+		sendSync(player);
+	}
+
+	private static void syncToAll(final MinecraftServer server, final net.minecraft.server.packs.resources.CloseableResourceManager manager, final boolean success) {
+		if (!success) {
+			return;
+		}
+		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+			sendSync(player);
+		}
+	}
+
+	private static void sendSync(final ServerPlayer player) {
+		ServerPlayNetworking.send(player, new VFXSyncPayload(
+			new HashMap<>(VFXDefinitionManager.get().getRawDefinitions()),
+			new HashMap<>(VFXCurveManager.get().getRawCurves())
+		));
 	}
 
 	public static void registerVfxDefinitionReloadListener() {

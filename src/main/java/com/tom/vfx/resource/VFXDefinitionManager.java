@@ -29,16 +29,18 @@ import org.slf4j.LoggerFactory;
 /**
  * Registry of {@link VFXDefinition}s. Contains the built-in effects (always available) and is
  * refreshed from datapack {@code data/<namespace>/vfx/<effect>.json} files on every (server)
- * data reload. Registering the same listener on the client makes datapack effects available to
- * rendering in single player; on a dedicated server the client keeps only the built-ins.
+ * data reload. On a dedicated server the raw datapack definitions are sent to connecting
+ * clients via {@code VFXSyncPayload} (see {@link #applySynced(Map)}), so datapack effects work
+ * on clients that have no datapack themselves; single player loads them directly.
  */
-public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Identifier, VFXDefinition>> {
+public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Identifier, String>> {
 	private static final Logger LOGGER = LoggerFactory.getLogger("tompfx/vfx-defs");
 	private static final FileToIdConverter FILE_CONVERTER = FileToIdConverter.json("vfx");
 
 	private static final VFXDefinitionManager INSTANCE = new VFXDefinitionManager();
 
 	private final Map<Identifier, VFXDefinition> builtIns = new LinkedHashMap<>();
+	private volatile Map<Identifier, String> rawDefinitions = Map.of();
 	private volatile Map<Identifier, VFXDefinition> definitions = new LinkedHashMap<>();
 
 	private VFXDefinitionManager() {
@@ -68,33 +70,66 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 		return this.definitions.containsKey(id);
 	}
 
+	/**
+	 * Raw JSON source of the datapack-defined effects (used by the server to synchronize them
+	 * to clients over {@code VFXSyncPayload}).
+	 */
+	public Map<Identifier, String> getRawDefinitions() {
+		return this.rawDefinitions;
+	}
+
 	@Override
-	protected Map<Identifier, VFXDefinition> prepare(final ResourceManager manager, final ProfilerFiller profiler) {
-		Map<Identifier, VFXDefinition> loaded = new HashMap<>();
+	protected Map<Identifier, String> prepare(final ResourceManager manager, final ProfilerFiller profiler) {
+		Map<Identifier, String> loaded = new HashMap<>();
 		for (Entry<Identifier, Resource> entry : FILE_CONVERTER.listMatchingResources(manager).entrySet()) {
 			Identifier fileId = entry.getKey();
 			Identifier effectId = FILE_CONVERTER.fileToId(fileId);
 			try (Reader reader = entry.getValue().openAsReader()) {
-				JsonObject json = StrictJsonParser.parse(reader).getAsJsonObject();
-				loaded.put(effectId, VFXDefinition.parse(effectId, json));
-			} catch (JsonParseException | IllegalStateException | IllegalArgumentException | IOException e) {
-				// IllegalArgumentException also covers malformed/unknown fields thrown by
-				// VFXDefinition.parse() (unknown effect type, bad positions array, etc.) and by
-				// Identifier.parse()/BoundParam.Kind.fromString() called from within it. Without
-				// catching it here, a single bad datapack file would abort loading of every
-				// other VFX definition in this reload instead of just being skipped.
-				LOGGER.error("Couldn't parse VFX definition '{}' from '{}'", effectId, fileId, e);
+				StringBuilder sb = new StringBuilder();
+				char[] buf = new char[4096];
+				int n;
+				while ((n = reader.read(buf)) != -1) {
+					sb.append(buf, 0, n);
+				}
+				loaded.put(effectId, sb.toString());
+			} catch (IOException e) {
+				LOGGER.error("Couldn't read VFX definition '{}' from '{}'", effectId, fileId, e);
 			}
 		}
 		return loaded;
 	}
 
 	@Override
-	protected void apply(final Map<Identifier, VFXDefinition> loaded, final ResourceManager manager, final ProfilerFiller profiler) {
+	protected void apply(final Map<Identifier, String> loaded, final ResourceManager manager, final ProfilerFiller profiler) {
+		this.rawDefinitions = Map.copyOf(loaded);
+		reload(loaded);
+	}
+
+	private void reload(final Map<Identifier, String> raw) {
 		Map<Identifier, VFXDefinition> merged = new LinkedHashMap<>(this.builtIns);
-		merged.putAll(loaded);
+		int loadedCount = 0;
+		for (Entry<Identifier, String> entry : raw.entrySet()) {
+			try {
+				JsonObject json = StrictJsonParser.parse(entry.getValue()).getAsJsonObject();
+				merged.put(entry.getKey(), VFXDefinition.parse(entry.getKey(), json));
+				loadedCount++;
+			} catch (JsonParseException | IllegalStateException | IllegalArgumentException e) {
+				// A single bad definition is logged and skipped so the rest keep loading.
+				LOGGER.error("Couldn't parse VFX definition '{}'", entry.getKey(), e);
+			}
+		}
 		this.definitions = merged;
-		LOGGER.info("Loaded {} VFX effect definitions ({} from datapacks)", this.definitions.size(), loaded.size());
+		LOGGER.info("Loaded {} VFX effect definitions ({} from datapacks)", this.definitions.size(), loadedCount);
+	}
+
+	/**
+	 * Merges datapack definitions received from the server (over {@code VFXSyncPayload}) on top
+	 * of the built-in effects. Called on the client when it has no datapack of its own (dedicated
+	 * server); malformed entries from the server are logged and skipped.
+	 */
+	public void applySynced(final Map<Identifier, String> synced) {
+		this.rawDefinitions = Map.copyOf(synced);
+		reload(synced);
 	}
 
 	private void registerBuiltIns() {

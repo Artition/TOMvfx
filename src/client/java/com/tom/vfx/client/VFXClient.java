@@ -5,8 +5,11 @@ import com.tom.vfx.client.effect.VFXEffectManager;
 import com.tom.vfx.client.postprocessing.VFXShaderPrograms;
 import com.tom.vfx.client.render.VFXWorldOverlayRenderer;
 import com.tom.vfx.effect.EasingFunction;
+import com.tom.vfx.effect.VFXCurveManager;
 import com.tom.vfx.network.VFXAction;
+import com.tom.vfx.network.VFXSyncPayload;
 import com.tom.vfx.network.VFXTriggerPayload;
+import com.tom.vfx.resource.VFXDefinitionManager;
 import java.util.Map;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -27,7 +30,16 @@ public class VFXClient implements ClientModInitializer {
 		VFXWorldOverlayRenderer.register();
 		VFXAPI.setLocalDispatcher(new VFXClientAPI());
 		ClientPlayNetworking.registerGlobalReceiver(VFXTriggerPayload.TYPE, this::handleTrigger);
+		ClientPlayNetworking.registerGlobalReceiver(VFXSyncPayload.TYPE, this::handleSync);
 		LOGGER.info("TOMPFX client initialized");
+	}
+
+	private void handleSync(final VFXSyncPayload payload, final ClientPlayNetworking.Context context) {
+		context.client().execute(() -> {
+			VFXDefinitionManager.get().applySynced(payload.definitions());
+			VFXCurveManager.get().applySynced(payload.curves());
+			LOGGER.info("Received VFX sync: {} definitions, {} curves", payload.definitions().size(), payload.curves().size());
+		});
 	}
 
 	private void handleTrigger(final VFXTriggerPayload payload, final ClientPlayNetworking.Context context) {
