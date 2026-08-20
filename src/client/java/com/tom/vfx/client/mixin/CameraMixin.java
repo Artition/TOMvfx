@@ -2,6 +2,7 @@ package com.tom.vfx.client.mixin;
 
 import com.tom.vfx.client.effect.VFXEffectManager;
 import com.tom.vfx.client.shake.CameraShakeManager;
+import com.tom.vfx.client.shake.CameraSmoothingManager;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.world.phys.Vec3;
@@ -63,13 +64,21 @@ public abstract class CameraMixin {
 
 	@Inject(method = "update(Lnet/minecraft/client/DeltaTracker;)V", at = @At("TAIL"))
 	private void tompfx$applyShake(final DeltaTracker deltaTracker, final CallbackInfo ci) {
+		// Cinematic smoothing first: applies inertia to the base rotation, then the shake offset
+		// is layered on top so the two don't fight each other.
+		float deltaSeconds = deltaTracker.getRealtimeDeltaTicks() / 20.0f;
+		float[] smoothed = CameraSmoothingManager.smooth(this.yRot, this.xRot, deltaSeconds);
+		float baseYaw = smoothed[0];
+		float basePitch = smoothed[1];
+
 		CameraShakeManager.Offset offset = CameraShakeManager.compute(VFXEffectManager.get());
-		if (offset.dx() == 0.0 && offset.dy() == 0.0 && offset.dz() == 0.0
+		if (baseYaw == this.yRot && basePitch == this.xRot
+			&& offset.dx() == 0.0 && offset.dy() == 0.0 && offset.dz() == 0.0
 			&& offset.yaw() == 0.0F && offset.pitch() == 0.0F && offset.roll() == 0.0F) {
 			return;
 		}
 
-		this.setRotation(this.yRot + offset.yaw(), this.xRot + offset.pitch());
+		this.setRotation(baseYaw + offset.yaw(), basePitch + offset.pitch());
 
 		if (offset.roll() != 0.0F) {
 			Quaternionf roll = new Quaternionf().rotationZ(offset.roll() * (float) Math.PI / 180.0F);
