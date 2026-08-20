@@ -137,6 +137,19 @@ public class VFXDefinition {
 			}
 		}
 
+		// Optional "sound_pos": [x,y,z] sugar — expanded into sound_pos_x/y/z params so the sound
+		// position can be overridden via sendEffect like any other parameter. When absent the
+		// sound plays to the player directly (no world position).
+		if (json.has("sound_pos")) {
+			JsonArray sp = GsonHelper.getAsJsonArray(json, "sound_pos");
+			if (sp.size() != 3) {
+				throw new IllegalArgumentException("'sound_pos' must be an array of [x, y, z]");
+			}
+			params.putIfAbsent("sound_pos_x", ParamSpec.constant(sp.get(0).getAsFloat()));
+			params.putIfAbsent("sound_pos_y", ParamSpec.constant(sp.get(1).getAsFloat()));
+			params.putIfAbsent("sound_pos_z", ParamSpec.constant(sp.get(2).getAsFloat()));
+		}
+
 		List<ChildEffect> children = new ArrayList<>();
 		if (json.has("effects")) {
 			for (JsonElement entry : GsonHelper.getAsJsonArray(json, "effects")) {

@@ -17,8 +17,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.core.BlockPos;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -149,8 +152,8 @@ public class VFXEffectManager {
 			}
 			LOGGER.info("Scheduled {} child effect(s) from collection '{}'", scheduledCount, effectId);
 			if (definition.getSound() != null) {
-				// Collections have no timeline of their own, so volume/pitch use defaults.
-				playSound(definition.getSound(), 1.0F, 1.0F);
+				// Collections have no timeline of their own, so volume/pitch/position use defaults.
+				playSound(definition.getSound(), 1.0F, 1.0F, null);
 			}
 			return 0L;
 		}
@@ -197,7 +200,15 @@ public class VFXEffectManager {
 		if (definition != null && definition.getSound() != null) {
 			// Volume/pitch come from reserved effect parameters (constant, bound or expression),
 			// evaluated once at start time — matching the "one-shot sound" behaviour.
-			playSound(definition.getSound(), effect.getParam("volume", 1.0F), effect.getParam("pitch", 1.0F));
+			// When sound_pos_x/y/z are present the sound is played at those world coordinates
+			// (vanilla positional playback); otherwise it plays directly to the player.
+			float spx = effect.getParam("sound_pos_x", Float.NaN);
+			float spy = effect.getParam("sound_pos_y", Float.NaN);
+			float spz = effect.getParam("sound_pos_z", Float.NaN);
+			BlockPos soundPos = Float.isNaN(spx) || Float.isNaN(spy) || Float.isNaN(spz)
+				? null
+				: new BlockPos((int) spx, (int) spy, (int) spz);
+			playSound(definition.getSound(), effect.getParam("volume", 1.0F), effect.getParam("pitch", 1.0F), soundPos);
 		}
 		if (LOGGER.isInfoEnabled()) {
 			StringBuilder snapshot = new StringBuilder();
@@ -392,16 +403,22 @@ public class VFXEffectManager {
 		return new BlockPos(x.intValue(), y.intValue(), z.intValue());
 	}
 
-	private static void playSound(final Identifier soundId, final float volume, final float pitch) {
+	private static void playSound(final Identifier soundId, final float volume, final float pitch, final @Nullable BlockPos pos) {
 		try {
 			Minecraft minecraft = Minecraft.getInstance();
 			if (minecraft.level != null) {
-				// Effects are sent to specific players over the network; play locally at the
-				// effect's resolved volume/pitch for the receiving client instead of at world
-				// coordinates. Volume/pitch are read from the effect timeline at start time.
 				SoundEvent soundEvent = SoundEvent.createVariableRangeEvent(soundId);
-				// forUI(SoundEvent, pitch, volume) — note the argument order.
-				minecraft.getSoundManager().play(SimpleSoundInstance.forUI(soundEvent, pitch, volume));
+				if (pos != null) {
+					// Positional playback via the vanilla SimpleSoundInstance, like
+					// /playsound ... x y z — loud near the position, fading with distance.
+					minecraft.getSoundManager().play(new SimpleSoundInstance(
+						soundEvent, SoundSource.BLOCKS, volume, pitch, SoundInstance.createUnseededRandom(), pos
+					));
+				} else {
+					// Play directly to the player with no world position.
+					// forUI(SoundEvent, pitch, volume) — note the argument order.
+					minecraft.getSoundManager().play(SimpleSoundInstance.forUI(soundEvent, pitch, volume));
+				}
 			}
 		} catch (Exception e) {
 			LOGGER.warn("Failed to play VFX sound '{}'", soundId, e);
