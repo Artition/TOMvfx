@@ -149,7 +149,8 @@ public class VFXEffectManager {
 			}
 			LOGGER.info("Scheduled {} child effect(s) from collection '{}'", scheduledCount, effectId);
 			if (definition.getSound() != null) {
-				playSound(definition.getSound());
+				// Collections have no timeline of their own, so volume/pitch use defaults.
+				playSound(definition.getSound(), 1.0F, 1.0F);
 			}
 			return 0L;
 		}
@@ -194,7 +195,9 @@ public class VFXEffectManager {
 		}
 		this.active.add(effect);
 		if (definition != null && definition.getSound() != null) {
-			playSound(definition.getSound());
+			// Volume/pitch come from reserved effect parameters (constant, bound or expression),
+			// evaluated once at start time — matching the "one-shot sound" behaviour.
+			playSound(definition.getSound(), effect.getParam("volume", 1.0F), effect.getParam("pitch", 1.0F));
 		}
 		if (LOGGER.isInfoEnabled()) {
 			StringBuilder snapshot = new StringBuilder();
@@ -389,14 +392,15 @@ public class VFXEffectManager {
 		return new BlockPos(x.intValue(), y.intValue(), z.intValue());
 	}
 
-	private static void playSound(final Identifier soundId) {
+	private static void playSound(final Identifier soundId, final float volume, final float pitch) {
 		try {
 			Minecraft minecraft = Minecraft.getInstance();
 			if (minecraft.level != null) {
-				// Effects are sent to specific players over the network; play locally at full
-				// volume for the receiving client instead of at world coordinates.
+				// Effects are sent to specific players over the network; play locally at the
+				// effect's resolved volume/pitch for the receiving client instead of at world
+				// coordinates. Volume/pitch are read from the effect timeline at start time.
 				SoundEvent soundEvent = SoundEvent.createVariableRangeEvent(soundId);
-				minecraft.getSoundManager().play(SimpleSoundInstance.forUI(soundEvent, 1.0F, 1.0F));
+				minecraft.getSoundManager().play(SimpleSoundInstance.forUI(soundEvent, volume, pitch));
 			}
 		} catch (Exception e) {
 			LOGGER.warn("Failed to play VFX sound '{}'", soundId, e);
