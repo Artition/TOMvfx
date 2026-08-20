@@ -288,6 +288,39 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 				false, false, 10, List.of(), List.of(), null
 			)
 		);
+		this.builtIns.put(
+			Identifier.fromNamespaceAndPath("tompfx", "entity_tint"),
+			VFXDefinition.create(
+				Identifier.fromNamespaceAndPath("tompfx", "entity_tint"),
+				VFXEffectType.ENTITY_TINT,
+				40,
+				EasingFunction.builtIn(EasingType.EASE_IN_OUT_CUBIC),
+				Map.of(
+					"color_r", VFXDefinition.ParamSpec.constant(0.2F),
+					"color_g", VFXDefinition.ParamSpec.constant(0.6F),
+					"color_b", VFXDefinition.ParamSpec.constant(1.0F),
+					"alpha", VFXDefinition.ParamSpec.constant(0.5F)
+				),
+				false, false, 10, List.of(), List.of(), null
+			)
+		);
+		this.builtIns.put(
+			Identifier.fromNamespaceAndPath("tompfx", "entity_outline"),
+			VFXDefinition.create(
+				Identifier.fromNamespaceAndPath("tompfx", "entity_outline"),
+				VFXEffectType.ENTITY_OUTLINE,
+				40,
+				EasingFunction.builtIn(EasingType.EASE_IN_OUT_CUBIC),
+				Map.of(
+					"color_r", VFXDefinition.ParamSpec.constant(1.0F),
+					"color_g", VFXDefinition.ParamSpec.constant(0.85F),
+					"color_b", VFXDefinition.ParamSpec.constant(0.2F),
+					"alpha", VFXDefinition.ParamSpec.constant(1.0F),
+					"width", VFXDefinition.ParamSpec.constant(0.05F)
+				),
+				false, false, 10, List.of(), List.of(), null
+			)
+		);
 	}
 
 	@SafeVarargs

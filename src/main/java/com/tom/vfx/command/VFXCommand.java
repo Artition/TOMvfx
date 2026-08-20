@@ -14,6 +14,7 @@ import com.tom.vfx.api.VFXAPI;
 import com.tom.vfx.effect.EasingType;
 import com.tom.vfx.effect.VFXCurveManager;
 import com.tom.vfx.effect.VFXDefinition;
+import com.tom.vfx.network.VFXTriggerPayload;
 import com.tom.vfx.resource.VFXDefinitionManager;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,6 +35,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permission;
 import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.entity.Entity;
+import java.util.UUID;
 
 /**
  * {@code /vfx play <effect> [<targets>]} triggers a VFX effect,
@@ -76,6 +79,18 @@ public final class VFXCommand {
 										Commands.argument("targets", EntityArgument.players())
 											.executes(context2 -> playAt(context2, EntityArgument.getPlayers(context2, "targets")))
 									)
+							)
+					)
+			)
+			.then(
+				Commands.literal("playentity")
+					.requires(VFXCommand::requirePermission)
+					.then(
+						Commands.argument("effect", IdentifierArgument.id())
+							.suggests(VFXCommand::suggestEffects)
+							.then(
+								Commands.argument("targets", EntityArgument.entities())
+									.executes(context2 -> playEntity(context2, EntityArgument.getEntities(context2, "targets")))
 							)
 					)
 			)
@@ -170,6 +185,31 @@ Commands.argument("targets", EntityArgument.players())
 				false
 			);
 		return targets.size();
+	}
+
+	private static int playEntity(final CommandContext<CommandSourceStack> context, final Collection<? extends Entity> targets) throws CommandSyntaxException {
+		Identifier effectId = IdentifierArgument.getId(context, "effect");
+		if (!VFXDefinitionManager.get().contains(effectId)) {
+			throw ERROR_UNKNOWN_EFFECT.create(effectId.toString());
+		}
+
+		List<UUID> entityUuids = new ArrayList<>();
+		for (Entity entity : targets) {
+			if (entityUuids.size() >= VFXTriggerPayload.MAX_ENTITY_UUIDS) {
+				break;
+			}
+			entityUuids.add(entity.getUUID());
+		}
+
+		ServerPlayer sender = requirePlayer(context);
+		VFXAPI.sendEffect(sender, effectId, 0L, null, entityUuids, Map.of(), null);
+
+		context.getSource()
+			.sendSuccess(
+				() -> Component.translatable("commands.tompfx.played", effectId.toString(), entityUuids.size()),
+				false
+			);
+		return entityUuids.size();
 	}
 
 	private static int playAt(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {

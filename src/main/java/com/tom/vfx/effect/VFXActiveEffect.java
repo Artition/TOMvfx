@@ -1,6 +1,7 @@
 package com.tom.vfx.effect;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -21,6 +22,7 @@ public class VFXActiveEffect {
 	private final int fadeTicks;
 	private final boolean loop;
 	private final List<BlockPos> positions;
+	private final List<UUID> entityUuids;
 	private float elapsed;
 	private float age;
 	private float fadeOutStart = Float.NEGATIVE_INFINITY;
@@ -34,7 +36,7 @@ public class VFXActiveEffect {
 	 * @param timeline  pre-built animation timeline
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final float startTime, final VFXTimeline timeline) {
-		this(id, type, 0L, ThreadLocalRandom.current().nextLong(), startTime, timeline, 0, false, List.of());
+		this(id, type, 0L, ThreadLocalRandom.current().nextLong(), startTime, timeline, 0, false, List.of(), List.of());
 	}
 
 	/**
@@ -44,14 +46,14 @@ public class VFXActiveEffect {
 	 * @param loop      true when the timeline restarts once it reaches its duration
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop) {
-		this(id, type, 0L, ThreadLocalRandom.current().nextLong(), startTime, timeline, fadeTicks, loop, List.of());
+		this(id, type, 0L, ThreadLocalRandom.current().nextLong(), startTime, timeline, fadeTicks, loop, List.of(), List.of());
 	}
 
 	/**
 	 * Creates a new effect instance with fade, looping and world positions.
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop, final List<BlockPos> positions) {
-		this(id, type, 0L, ThreadLocalRandom.current().nextLong(), startTime, timeline, fadeTicks, loop, positions);
+		this(id, type, 0L, ThreadLocalRandom.current().nextLong(), startTime, timeline, fadeTicks, loop, positions, List.of());
 	}
 
 	/**
@@ -60,7 +62,7 @@ public class VFXActiveEffect {
 	 * stop action).
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final long instanceId, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop, final List<BlockPos> positions) {
-		this(id, type, instanceId, ThreadLocalRandom.current().nextLong(), startTime, timeline, fadeTicks, loop, positions);
+		this(id, type, instanceId, ThreadLocalRandom.current().nextLong(), startTime, timeline, fadeTicks, loop, positions, List.of());
 	}
 
 	/**
@@ -69,6 +71,16 @@ public class VFXActiveEffect {
 	 * @param instanceSeed per-instance seed used to drive generated noise (camera shake, {@code expr})
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final long instanceId, final long instanceSeed, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop, final List<BlockPos> positions) {
+		this(id, type, instanceId, instanceSeed, startTime, timeline, fadeTicks, loop, positions, List.of());
+	}
+
+	/**
+	 * Creates a new effect instance with an instance id, noise seed and entity UUID targets.
+	 *
+	 * @param instanceSeed per-instance seed used to drive generated noise (camera shake, {@code expr})
+	 * @param entityUuids  entity UUIDs this effect applies to (for entity tint/outline)
+	 */
+	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final long instanceId, final long instanceSeed, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop, final List<BlockPos> positions, final List<UUID> entityUuids) {
 		this.id = id;
 		this.type = type;
 		this.instanceId = instanceId;
@@ -78,6 +90,7 @@ public class VFXActiveEffect {
 		this.fadeTicks = fadeTicks;
 		this.loop = loop;
 		this.positions = List.copyOf(positions);
+		this.entityUuids = List.copyOf(entityUuids);
 		this.elapsed = 0.0F;
 		this.age = 0.0F;
 	}
@@ -210,5 +223,12 @@ public class VFXActiveEffect {
 	 */
 	public List<BlockPos> getPositions() {
 		return this.positions;
+	}
+
+	/**
+	 * Entity UUIDs this effect applies to (for entity tint/outline effects). Empty for non-entity effects.
+	 */
+	public List<UUID> getEntityUuids() {
+		return this.entityUuids;
 	}
 }

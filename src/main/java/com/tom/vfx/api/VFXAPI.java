@@ -6,7 +6,9 @@ import com.tom.vfx.effect.VFXDefinition;
 import com.tom.vfx.network.VFXTriggerPayload;
 import com.tom.vfx.resource.VFXDefinitionManager;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
@@ -127,7 +129,7 @@ public final class VFXAPI {
 	 * @return {@code true} when the effect was known and sent
 	 */
 	public static boolean sendEffect(final ServerPlayer player, final Identifier effectId, final Map<String, Float> overrides, final @Nullable EasingType easing) {
-		return sendEffect(player, effectId, 0L, null, overrides, easing);
+		return sendEffect(player, effectId, 0L, null, List.of(), overrides, easing);
 	}
 
 	/**
@@ -143,19 +145,21 @@ public final class VFXAPI {
 	 * @return {@code true} when the effect was known and sent
 	 */
 	public static boolean sendEffect(final ServerPlayer player, final Identifier effectId, final Vec3 worldPos, final Map<String, Float> overrides, final @Nullable EasingType easing) {
-		return sendEffect(player, effectId, 0L, worldPos, overrides, easing);
+		return sendEffect(player, effectId, 0L, worldPos, List.of(), overrides, easing);
 	}
 
 	/**
-	 * Triggers an effect for a player over the network with an explicit instance id and world
-	 * position. The instance id lets a later {@link #sendStop(ServerPlayer, Identifier, long)}
-	 * target this exact instance instead of every instance of the effect. When {@code instanceId}
-	 * is {@code 0}, the client allocates one on play.
+	 * Triggers an effect for a player over the network with an explicit instance id, world
+	 * position and entity UUID targets (for entity tint/outline effects). The instance id lets a
+	 * later {@link #sendStop(ServerPlayer, Identifier, long)} target this exact instance instead
+	 * of every instance of the effect. When {@code instanceId} is {@code 0}, the client allocates
+	 * one on play.
 	 *
 	 * @param player     the receiving player
 	 * @param effectId   effect id (must be registered)
 	 * @param instanceId instance id to assign (0 = client allocates)
 	 * @param worldPos   world position to anchor the effect to (may be null)
+	 * @param entityUuids entity UUIDs this effect applies to (for entity tint/outline)
 	 * @param overrides  parameter overrides (may be empty)
 	 * @param easing     easing curve (may be null to use the definition default)
 	 * @return {@code true} when the effect was known and sent
@@ -165,6 +169,7 @@ public final class VFXAPI {
 		final Identifier effectId,
 		final long instanceId,
 		final @Nullable Vec3 worldPos,
+		final List<UUID> entityUuids,
 		final Map<String, Float> overrides,
 		final @Nullable EasingType easing
 	) {
@@ -183,7 +188,7 @@ public final class VFXAPI {
 		params.putAll(overrides);
 		int duration = definition.isPersistent() ? -1 : definition.getDefaultDuration();
 		EasingFunction effectiveEasing = easing != null ? EasingFunction.builtIn(easing) : definition.getDefaultEasing();
-		ServerPlayNetworking.send(player, VFXTriggerPayload.play(effectId, duration, instanceId, worldPos, params, effectiveEasing.name()));
+		ServerPlayNetworking.send(player, VFXTriggerPayload.play(effectId, duration, instanceId, worldPos, entityUuids, params, effectiveEasing.name()));
 		return true;
 	}
 

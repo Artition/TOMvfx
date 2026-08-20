@@ -26,6 +26,11 @@ boolean sendEffect(ServerPlayer player, Identifier effectId, long instanceId, @N
 // Явный вариант без обращения к реестру определений — все поля пакета задаются вручную.
 void sendEffect(ServerPlayer player, Identifier effectId, int durationTicks, Map<String, Float> params, EasingType easing);
 
+// Полный вариант: длительность, instance id, мировая позиция, UUID целей для entity-эффектов
+// (entity_tint/entity_outline), оверрайды параметров и easing. entityUuids — до 16 UUID;
+// пустой список для всех остальных типов эффектов.
+void sendEffect(ServerPlayer player, Identifier effectId, int durationTicks, long instanceId, @Nullable Vec3 worldPos, List<UUID> entityUuids, Map<String, Float> overrides, @Nullable EasingType easing);
+
 // Останавливает эффект на клиенте игрока (все его экземпляры).
 void sendStop(ServerPlayer player, Identifier effectId);
 

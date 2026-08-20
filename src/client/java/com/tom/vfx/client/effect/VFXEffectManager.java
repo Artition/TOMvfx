@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.core.BlockPos;
@@ -84,7 +85,7 @@ public class VFXEffectManager {
 				return false;
 			});
 			for (ScheduledPlay play : due) {
-				this.play(play.effectId(), play.durationTicks(), 0L, play.position(), play.params(), play.easing(), play.depth());
+				this.play(play.effectId(), play.durationTicks(), 0L, play.position(), List.of(), play.params(), play.easing(), play.depth());
 			}
 		}
 		for (VFXActiveEffect effect : this.active) {
@@ -103,7 +104,7 @@ public class VFXEffectManager {
 	 * @return the instance id, or {@code 0} when the effect was ignored
 	 */
 	public long play(final Identifier effectId, final int durationTicks, final Map<String, Float> params, final EasingType easing) {
-		return this.play(effectId, durationTicks, 0L, null, params, EasingFunction.builtIn(easing), 0);
+		return this.play(effectId, durationTicks, 0L, null, List.of(), params, EasingFunction.builtIn(easing), 0);
 	}
 
 	/**
@@ -122,14 +123,18 @@ public class VFXEffectManager {
 	 * @return the instance id, or {@code 0} when the effect was ignored
 	 */
 	public long play(final Identifier effectId, final int durationTicks, final long instanceId, final @Nullable Vec3 position, final Map<String, Float> params, final EasingFunction easing) {
-		return this.play(effectId, durationTicks, instanceId, position, params, easing, 0);
+		return this.play(effectId, durationTicks, instanceId, position, List.of(), params, easing, 0);
 	}
 
 	/**
-	 * Starts an effect with an explicit instance id, world position and easing function (used by
-	 * the network receiver and by scheduled collection children).
+	 * Starts an effect with an explicit instance id, world position, entity UUID targets and
+	 * easing function (used by the network receiver and by scheduled collection children).
 	 */
-	public long play(final Identifier effectId, final int durationTicks, final long instanceId, final @Nullable Vec3 position, final Map<String, Float> params, final EasingFunction easing, final int depth) {
+	public long play(final Identifier effectId, final int durationTicks, final long instanceId, final @Nullable Vec3 position, final List<UUID> entityUuids, final Map<String, Float> params, final EasingFunction easing) {
+		return this.play(effectId, durationTicks, instanceId, position, entityUuids, params, easing, 0);
+	}
+
+	private long play(final Identifier effectId, final int durationTicks, final long instanceId, final @Nullable Vec3 position, final List<UUID> entityUuids, final Map<String, Float> params, final EasingFunction easing, final int depth) {
 		VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
 		VFXEffectType type = definition != null ? definition.getType() : VFXEffectType.fromString(effectId.getPath());
 		if (type == null) {
@@ -189,7 +194,7 @@ public class VFXEffectManager {
 			double pz = position != null ? position.z() : payloadPos.getZ();
 			timeline.rebindPositions(px, py, pz);
 		}
-		VFXActiveEffect effect = new VFXActiveEffect(effectId, type, id, instanceSeed, this.clock, timeline, fadeTicks, loop, positions);
+		VFXActiveEffect effect = new VFXActiveEffect(effectId, type, id, instanceSeed, this.clock, timeline, fadeTicks, loop, positions, entityUuids);
 		// Same-id replays stack as independent instances (e.g. several dents at once);
 		// /vfx stop removes every instance of the id, stop(instanceId) removes one. MAX_ACTIVE_EFFECTS caps the total.
 		while (this.active.size() >= MAX_ACTIVE_EFFECTS) {
@@ -373,6 +378,15 @@ public class VFXEffectManager {
 
 	public List<VFXActiveEffect> getActiveWorldEffects() {
 		return this.active.stream().filter(e -> e.getType().isWorldOverlay()).toList();
+	}
+
+	/**
+	 * The active entity effects targeting the given entity UUID (entity tint/outline).
+	 */
+	public List<VFXActiveEffect> getActiveEntityEffects(final UUID uuid) {
+		return this.active.stream()
+			.filter(e -> (e.getType() == VFXEffectType.ENTITY_TINT || e.getType() == VFXEffectType.ENTITY_OUTLINE) && e.getEntityUuids().contains(uuid))
+			.toList();
 	}
 
 	public List<VFXActiveEffect> getActiveShakes() {
