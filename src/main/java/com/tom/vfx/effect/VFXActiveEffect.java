@@ -12,6 +12,7 @@ import net.minecraft.resources.Identifier;
 public class VFXActiveEffect {
 	private final Identifier id;
 	private final VFXEffectType type;
+	private final long instanceId;
 	private final float startTime;
 	private final VFXTimeline timeline;
 	private final int fadeTicks;
@@ -30,7 +31,7 @@ public class VFXActiveEffect {
 	 * @param timeline  pre-built animation timeline
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final float startTime, final VFXTimeline timeline) {
-		this(id, type, startTime, timeline, 0, false, List.of());
+		this(id, type, 0L, startTime, timeline, 0, false, List.of());
 	}
 
 	/**
@@ -40,15 +41,25 @@ public class VFXActiveEffect {
 	 * @param loop      true when the timeline restarts once it reaches its duration
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop) {
-		this(id, type, startTime, timeline, fadeTicks, loop, List.of());
+		this(id, type, 0L, startTime, timeline, fadeTicks, loop, List.of());
 	}
 
 	/**
 	 * Creates a new effect instance with fade, looping and world positions.
 	 */
 	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop, final List<BlockPos> positions) {
+		this(id, type, 0L, startTime, timeline, fadeTicks, loop, positions);
+	}
+
+	/**
+	 * Creates a new effect instance with a caller-assigned instance id (used to address one of
+	 * several concurrent instances of the same effect, e.g. for {@code /vfx stop} or the network
+	 * stop action).
+	 */
+	public VFXActiveEffect(final Identifier id, final VFXEffectType type, final long instanceId, final float startTime, final VFXTimeline timeline, final int fadeTicks, final boolean loop, final List<BlockPos> positions) {
 		this.id = id;
 		this.type = type;
+		this.instanceId = instanceId;
 		this.startTime = startTime;
 		this.timeline = timeline;
 		this.fadeTicks = fadeTicks;
@@ -140,6 +151,10 @@ public class VFXActiveEffect {
 
 	public Identifier getId() {
 		return this.id;
+	}
+
+	public long getInstanceId() {
+		return this.instanceId;
 	}
 
 	public VFXEffectType getType() {

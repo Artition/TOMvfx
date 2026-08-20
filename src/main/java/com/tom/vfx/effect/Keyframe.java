@@ -6,9 +6,9 @@ package com.tom.vfx.effect;
  *
  * @param time   time of the keyframe in ticks (relative to the animation start)
  * @param value  value at this keyframe
- * @param easing easing curve used to reach the next keyframe
+ * @param easing easing curve used to reach the next keyframe (built-in or custom)
  */
-public record Keyframe(float time, float value, EasingType easing) {
+public record Keyframe(float time, float value, EasingFunction easing) {
 	/**
 	 * Creates a keyframe with linear interpolation.
 	 *
@@ -16,6 +16,6 @@ public record Keyframe(float time, float value, EasingType easing) {
 	 * @param value value at this keyframe
 	 */
 	public Keyframe(final float time, final float value) {
-		this(time, value, EasingType.LINEAR);
+		this(time, value, EasingFunction.builtIn(EasingType.LINEAR));
 	}
 }

@@ -22,6 +22,7 @@ public class VFXTimeline {
 	private final float duration;
 	private final Map<String, AnimatedValue> values;
 	private Map<String, BoundParam> bindings;
+	private Map<String, BoundParam> multipliers;
 	private final Map<String, AnimatedValue> overrides = new LinkedHashMap<>();
 	private float elapsed;
 
@@ -32,7 +33,7 @@ public class VFXTimeline {
 	 * @param values   named animated values
 	 */
 	public VFXTimeline(final float duration, final Map<String, AnimatedValue> values) {
-		this(duration, values, Map.of());
+		this(duration, values, Map.of(), Map.of());
 	}
 
 	/**
@@ -43,9 +44,23 @@ public class VFXTimeline {
 	 * @param bindings named world bindings (evaluated per frame against the camera)
 	 */
 	public VFXTimeline(final float duration, final Map<String, AnimatedValue> values, final Map<String, BoundParam> bindings) {
+		this(duration, values, bindings, Map.of());
+	}
+
+	/**
+	 * Creates a timeline with time-animated values, world bindings and multiplicative modifiers.
+	 *
+	 * @param duration    total duration in ticks
+	 * @param values      named animated values
+	 * @param bindings    named world bindings (evaluated per frame against the camera)
+	 * @param multipliers named bindings whose evaluated value is multiplied onto the base value
+	 *                    of the same parameter (e.g. keyframes × proximity falloff)
+	 */
+	public VFXTimeline(final float duration, final Map<String, AnimatedValue> values, final Map<String, BoundParam> bindings, final Map<String, BoundParam> multipliers) {
 		this.duration = duration;
 		this.values = Collections.unmodifiableMap(new LinkedHashMap<>(values));
 		this.bindings = Collections.unmodifiableMap(new LinkedHashMap<>(bindings));
+		this.multipliers = Collections.unmodifiableMap(new LinkedHashMap<>(multipliers));
 		this.elapsed = 0.0F;
 	}
 
@@ -77,11 +92,19 @@ public class VFXTimeline {
 			return override.get();
 		}
 		BoundParam binding = this.bindings.get(name);
+		float base;
 		if (binding != null) {
-			return VFXWorldBindings.evaluate(binding, fallback);
+			base = VFXWorldBindings.evaluate(binding, fallback);
+		} else {
+			AnimatedValue value = this.values.get(name);
+			base = value == null ? fallback : value.get();
 		}
-		AnimatedValue value = this.values.get(name);
-		return value == null ? fallback : value.get();
+		BoundParam multiplier = this.multipliers.get(name);
+		if (multiplier != null) {
+			// Neutral multiplier (no camera state available) is 1.0 so the base value is unchanged.
+			base *= VFXWorldBindings.evaluate(multiplier, 1.0F);
+		}
+		return base;
 	}
 
 	/**
@@ -114,6 +137,10 @@ public class VFXTimeline {
 		return this.bindings;
 	}
 
+	public Map<String, BoundParam> getMultipliers() {
+		return this.multipliers;
+	}
+
 	/**
 	 * Re-anchors every spatial binding ({@code screen_x}/{@code screen_y}/{@code proximity})
 	 * to the given world position — used when an explicit position override arrives (e.g.
@@ -124,8 +151,13 @@ public class VFXTimeline {
 	 * @param z world Z
 	 */
 	public void rebindPositions(final double x, final double y, final double z) {
+		this.bindings = rebindAll(this.bindings, x, y, z);
+		this.multipliers = rebindAll(this.multipliers, x, y, z);
+	}
+
+	private static Map<String, BoundParam> rebindAll(final Map<String, BoundParam> source, final double x, final double y, final double z) {
 		final Map<String, BoundParam> updated = new LinkedHashMap<>();
-		for (final Map.Entry<String, BoundParam> entry : this.bindings.entrySet()) {
+		for (final Map.Entry<String, BoundParam> entry : source.entrySet()) {
 			final BoundParam binding = entry.getValue();
 			if (binding.kind().needsPos()) {
 				updated.put(entry.getKey(), new BoundParam(binding.kind(), x, y, z, binding.yaw(), binding.pitch(), binding.range(), binding.invert(), binding.scale()));
@@ -133,7 +165,7 @@ public class VFXTimeline {
 				updated.put(entry.getKey(), binding);
 			}
 		}
-		this.bindings = Collections.unmodifiableMap(updated);
+		return Collections.unmodifiableMap(updated);
 	}
 
 	/**
@@ -157,7 +189,7 @@ public class VFXTimeline {
 	 * @param value   keyframe value
 	 * @param easing  easing curve towards the next keyframe
 	 */
-	public void setKeyframe(final String name, final float time, final float value, final EasingType easing) {
+	public void setKeyframe(final String name, final float time, final float value, final EasingFunction easing) {
 		AnimatedValue base = this.overrides.get(name);
 		if (base == null) {
 			base = this.values.get(name);

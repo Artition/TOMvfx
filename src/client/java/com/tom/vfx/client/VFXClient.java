@@ -4,6 +4,7 @@ import com.tom.vfx.api.VFXAPI;
 import com.tom.vfx.client.effect.VFXEffectManager;
 import com.tom.vfx.client.postprocessing.VFXShaderPrograms;
 import com.tom.vfx.client.render.VFXWorldOverlayRenderer;
+import com.tom.vfx.effect.EasingFunction;
 import com.tom.vfx.network.VFXAction;
 import com.tom.vfx.network.VFXTriggerPayload;
 import java.util.Map;
@@ -35,9 +36,13 @@ public class VFXClient implements ClientModInitializer {
 				LOGGER.warn("Ignoring VFX packet from server: protocol version mismatch (server={}, client={})", payload.protocolVersion(), VFXTriggerPayload.PROTOCOL_VERSION);
 				return;
 			}
-			LOGGER.info("Received VFX packet: action={}, effect={}, duration={}, params={}", payload.action(), payload.effectId(), payload.durationTicks(), payload.params().keySet());
+			LOGGER.info("Received VFX packet: action={}, effect={}, duration={}, instance={}, position={}, params={}", payload.action(), payload.effectId(), payload.durationTicks(), payload.instanceId(), payload.position(), payload.params().keySet());
 			if (payload.action() == VFXAction.STOP) {
-				VFXEffectManager.get().stop(payload.effectId());
+				if (payload.instanceId() != 0L) {
+					VFXEffectManager.get().stop(payload.instanceId());
+				} else {
+					VFXEffectManager.get().stop(payload.effectId());
+				}
 			} else if (payload.action() == VFXAction.SET_PARAM || payload.action() == VFXAction.KEYFRAME) {
 				if (payload.params().size() != 1) {
 					LOGGER.warn("Ignoring VFX packet: {} expects exactly one parameter, got {}", payload.action(), payload.params().size());
@@ -48,11 +53,11 @@ public class VFXClient implements ClientModInitializer {
 					if (!VFXEffectManager.get().setParam(payload.effectId(), entry.getKey(), entry.getValue())) {
 						LOGGER.warn("VFX set_param: effect '{}' is not running", payload.effectId());
 					}
-				} else if (!VFXEffectManager.get().setKeyframe(payload.effectId(), entry.getKey(), payload.durationTicks(), entry.getValue(), payload.easing())) {
+				} else if (!VFXEffectManager.get().setKeyframe(payload.effectId(), entry.getKey(), payload.durationTicks(), entry.getValue(), EasingFunction.fromString(payload.easing()))) {
 					LOGGER.warn("VFX keyframe: effect '{}' is not running", payload.effectId());
 				}
 			} else {
-				VFXEffectManager.get().play(payload.effectId(), payload.durationTicks(), payload.params(), payload.easing());
+				VFXEffectManager.get().play(payload.effectId(), payload.durationTicks(), payload.instanceId(), payload.position(), payload.params(), EasingFunction.fromString(payload.easing()));
 			}
 		});
 	}

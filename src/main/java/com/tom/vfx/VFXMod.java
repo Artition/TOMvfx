@@ -2,6 +2,7 @@ package com.tom.vfx;
 
 import com.tom.vfx.command.ParamMapArgument;
 import com.tom.vfx.command.VFXCommand;
+import com.tom.vfx.effect.VFXCurveManager;
 import com.tom.vfx.network.VFXPayloads;
 import com.tom.vfx.resource.VFXDefinitionManager;
 import net.fabricmc.api.ModInitializer;
@@ -27,9 +28,11 @@ public class VFXMod implements ModInitializer {
 		ArgumentTypeRegistry.registerArgumentType(id("param_map"), ParamMapArgument.class, SingletonArgumentInfo.contextFree(ParamMapArgument::new));
 		CommandRegistrationCallback.EVENT.register(VFXCommand::register);
 
-		// Datapack VFX definitions (data/<namespace>/vfx/<effect>.json). Also registered from the
-		// client entrypoint so single player rendering can resolve datapack-defined effects.
+		// Datapack VFX definitions (data/<namespace>/vfx/<effect>.json) and custom easing curves
+		// (data/<namespace>/vfx_curves/<curve>.json). Also registered from the client entrypoint so
+		// single player rendering can resolve datapack-defined effects and curves.
 		registerVfxDefinitionReloadListener();
+		registerVfxCurveReloadListener();
 	}
 
 	public static void registerVfxDefinitionReloadListener() {
@@ -38,6 +41,15 @@ public class VFXMod implements ModInitializer {
 				.registerReloadListener(id("vfx_definitions"), VFXDefinitionManager.get());
 		} catch (RuntimeException e) {
 			LOGGER.warn("Could not register VFX definition reload listener", e);
+		}
+	}
+
+	public static void registerVfxCurveReloadListener() {
+		try {
+			ResourceLoader.get(PackType.SERVER_DATA)
+				.registerReloadListener(id("vfx_curves"), VFXCurveManager.get());
+		} catch (RuntimeException e) {
+			LOGGER.warn("Could not register VFX curve reload listener", e);
 		}
 	}
 

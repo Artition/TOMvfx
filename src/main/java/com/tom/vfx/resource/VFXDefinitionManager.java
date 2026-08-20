@@ -3,6 +3,7 @@ package com.tom.vfx.resource;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.tom.vfx.effect.BoundParam;
+import com.tom.vfx.effect.EasingFunction;
 import com.tom.vfx.effect.EasingType;
 import com.tom.vfx.effect.VFXDefinition;
 import com.tom.vfx.effect.VFXEffectType;
@@ -162,7 +163,7 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 				Identifier.fromNamespaceAndPath("tompfx", "motion_blur"),
 				VFXEffectType.MOTION_BLUR,
 				40,
-				EasingType.EASE_IN_OUT_CUBIC,
+				EasingFunction.builtIn(EasingType.EASE_IN_OUT_CUBIC),
 				Map.of(
 					"intensity", VFXDefinition.ParamSpec.animated(0.35F, 0.0F),
 					"yaw_delta", VFXDefinition.ParamSpec.bound(new BoundParam(BoundParam.Kind.CAMERA_YAW_DELTA, 0.0, 0.0, 0.0, 0.0F, 0.0F, 1.0F, false, 1.0F)),
@@ -225,7 +226,7 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 				Identifier.fromNamespaceAndPath("tompfx", "block_tint"),
 				VFXEffectType.BLOCK_TINT,
 				60,
-				EasingType.EASE_IN_OUT_CUBIC,
+				EasingFunction.builtIn(EasingType.EASE_IN_OUT_CUBIC),
 				Map.of(
 					"color_r", VFXDefinition.ParamSpec.constant(0.2F),
 					"color_g", VFXDefinition.ParamSpec.constant(0.6F),
@@ -241,7 +242,7 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 				Identifier.fromNamespaceAndPath("tompfx", "block_outline"),
 				VFXEffectType.BLOCK_OUTLINE,
 				60,
-				EasingType.EASE_IN_OUT_CUBIC,
+				EasingFunction.builtIn(EasingType.EASE_IN_OUT_CUBIC),
 				Map.of(
 					"color_r", VFXDefinition.ParamSpec.constant(1.0F),
 					"color_g", VFXDefinition.ParamSpec.constant(0.85F),
@@ -267,7 +268,7 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 		for (Entry<String, VFXDefinition.ParamSpec> param : params) {
 			map.put(param.getKey(), param.getValue());
 		}
-		return VFXDefinition.create(Identifier.fromNamespaceAndPath(namespace, path), type, duration, easing, map);
+		return VFXDefinition.create(Identifier.fromNamespaceAndPath(namespace, path), type, duration, EasingFunction.builtIn(easing), map);
 	}
 
 	private static Entry<String, VFXDefinition.ParamSpec> param(final String name, final float value) {

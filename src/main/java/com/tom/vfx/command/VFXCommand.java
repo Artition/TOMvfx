@@ -12,6 +12,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.tom.vfx.api.VFXAPI;
 import com.tom.vfx.effect.EasingType;
+import com.tom.vfx.effect.VFXCurveManager;
 import com.tom.vfx.effect.VFXDefinition;
 import com.tom.vfx.resource.VFXDefinitionManager;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * {@code /vfx play <effect> [<targets>]} triggers a VFX effect,
@@ -113,7 +115,7 @@ public final class VFXCommand {
 											Commands.argument("time", IntegerArgumentType.integer(0))
 												.then(
 													Commands.argument("value", FloatArgumentType.floatArg())
-														.executes(context2 -> keyframe(context2, EasingType.LINEAR, List.of(requirePlayer(context2))))
+														.executes(context2 -> keyframe(context2, EasingType.LINEAR.name(), List.of(requirePlayer(context2))))
 														.then(
 															Commands.argument("easing", StringArgumentType.word())
 																.suggests(VFXCommand::suggestEasings)
@@ -124,8 +126,8 @@ public final class VFXCommand {
 																)
 														)
 														.then(
-															Commands.argument("targets", EntityArgument.players())
-																.executes(context2 -> keyframe(context2, EasingType.LINEAR, EntityArgument.getPlayers(context2, "targets")))
+Commands.argument("targets", EntityArgument.players())
+													.executes(context2 -> keyframe(context2, EasingType.LINEAR.name(), EntityArgument.getPlayers(context2, "targets")))
 														)
 												)
 										)
@@ -160,14 +162,10 @@ public final class VFXCommand {
 			throw ERROR_UNKNOWN_EFFECT.create(effectId.toString());
 		}
 		BlockPos pos = BlockPosArgument.getBlockPos(context, "pos");
-		Map<String, Float> overrides = Map.of(
-			"pos_x", (float) pos.getX(),
-			"pos_y", (float) pos.getY(),
-			"pos_z", (float) pos.getZ()
-		);
+		Vec3 worldPos = pos.getCenter();
 
 		for (ServerPlayer player : targets) {
-			VFXAPI.sendEffect(player, effectId, overrides, null);
+			VFXAPI.sendEffect(player, effectId, worldPos, Map.of(), null);
 		}
 
 		context.getSource()
@@ -208,7 +206,7 @@ public final class VFXCommand {
 		return targets.size();
 	}
 
-	private static int keyframe(final CommandContext<CommandSourceStack> context, final EasingType easing, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
+	private static int keyframe(final CommandContext<CommandSourceStack> context, final String easing, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
 		Identifier effectId = IdentifierArgument.getId(context, "effect");
 		String param = StringArgumentType.getString(context, "param");
 		int time = IntegerArgumentType.getInteger(context, "time");
@@ -218,14 +216,14 @@ public final class VFXCommand {
 		}
 		context.getSource()
 			.sendSuccess(
-				() -> Component.translatable("commands.tompfx.key", param, effectId.toString(), time, value, easing.name(), targets.size()),
+				() -> Component.translatable("commands.tompfx.key", param, effectId.toString(), time, value, easing, targets.size()),
 				false
 			);
 		return targets.size();
 	}
 
-	private static EasingType currentEasing(final CommandContext<CommandSourceStack> context) {
-		return EasingType.fromString(StringArgumentType.getString(context, "easing"));
+	private static String currentEasing(final CommandContext<CommandSourceStack> context) {
+		return StringArgumentType.getString(context, "easing");
 	}
 
 	private static int list(final CommandContext<CommandSourceStack> context) {
@@ -244,7 +242,12 @@ public final class VFXCommand {
 	}
 
 	private static CompletableFuture<Suggestions> suggestEasings(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
-		return SharedSuggestionProvider.suggest(java.util.Arrays.stream(EasingType.values()).map(e -> e.name().toLowerCase(java.util.Locale.ROOT)), builder);
+		java.util.Set<String> names = new java.util.LinkedHashSet<>();
+		for (EasingType type : EasingType.values()) {
+			names.add(type.name().toLowerCase(java.util.Locale.ROOT));
+		}
+		names.addAll(VFXCurveManager.get().getCurves().keySet().stream().map(Identifier::toString).toList());
+		return SharedSuggestionProvider.suggest(names, builder);
 	}
 
 	/**

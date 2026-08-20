@@ -23,7 +23,7 @@ public class VFXDefinition {
 	private final Identifier id;
 	private final VFXEffectType type;
 	private final int defaultDuration;
-	private final EasingType defaultEasing;
+	private final EasingFunction defaultEasing;
 	private final Map<String, ParamSpec> params;
 	private final boolean persistent;
 	private final boolean loop;
@@ -36,7 +36,7 @@ public class VFXDefinition {
 		final Identifier id,
 		final VFXEffectType type,
 		final int defaultDuration,
-		final EasingType defaultEasing,
+		final EasingFunction defaultEasing,
 		final Map<String, ParamSpec> params,
 		final boolean persistent,
 		final boolean loop,
@@ -65,7 +65,7 @@ public class VFXDefinition {
 		final Identifier id,
 		final VFXEffectType type,
 		final int defaultDuration,
-		final EasingType defaultEasing,
+		final EasingFunction defaultEasing,
 		final Map<String, ParamSpec> params
 	) {
 		return create(id, type, defaultDuration, defaultEasing, params, false, false, 0, List.of(), List.of(), null);
@@ -78,7 +78,7 @@ public class VFXDefinition {
 		final Identifier id,
 		final VFXEffectType type,
 		final int defaultDuration,
-		final EasingType defaultEasing,
+		final EasingFunction defaultEasing,
 		final Map<String, ParamSpec> params,
 		final boolean persistent,
 		final boolean loop,
@@ -95,7 +95,7 @@ public class VFXDefinition {
 		final Identifier id,
 		final VFXEffectType type,
 		final int defaultDuration,
-		final EasingType defaultEasing,
+		final EasingFunction defaultEasing,
 		final Map<String, ParamSpec> params,
 		final boolean persistent,
 		final boolean loop,
@@ -121,7 +121,7 @@ public class VFXDefinition {
 		}
 
 		int duration = GsonHelper.getAsInt(json, "duration", 40);
-		EasingType easing = EasingType.fromString(GsonHelper.getAsString(json, "easing", "LINEAR"));
+		EasingFunction easing = parseEasing(json.get("easing"));
 		boolean persistent = GsonHelper.getAsBoolean(json, "persistent", false);
 		boolean loop = GsonHelper.getAsBoolean(json, "loop", false);
 		int fadeTicks = GsonHelper.getAsInt(json, "fade_ticks", persistent || loop ? 10 : 0);
@@ -149,6 +149,43 @@ public class VFXDefinition {
 		}
 
 		return new VFXDefinition(id, type, duration, easing, params, persistent, loop, fadeTicks, children, positions, sound);
+	}
+
+	/**
+	 * Parses an easing reference: a plain name (built-in or named datapack curve) or an inline
+	 * object with a {@code curve} control-point array.
+	 *
+	 * @param element the JSON value of an {@code easing} field (may be null)
+	 * @return the resolved easing function (never null)
+	 */
+	private static EasingFunction parseEasing(final @Nullable JsonElement element) {
+		if (element == null || element.isJsonNull()) {
+			return EasingFunction.builtIn(EasingType.LINEAR);
+		}
+		if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()) {
+			return EasingFunction.fromString(element.getAsString());
+		}
+		if (element.isJsonObject() && element.getAsJsonObject().has("curve")) {
+			JsonArray curve = GsonHelper.getAsJsonArray(element.getAsJsonObject(), "curve");
+			float[] ts = new float[curve.size()];
+			float[] vs = new float[curve.size()];
+			for (int i = 0; i < curve.size(); i++) {
+				JsonArray point = GsonHelper.convertToJsonArray(curve.get(i), "curve point");
+				if (point.size() != 2) {
+					throw new IllegalArgumentException("Curve point must be [t, v]: " + point);
+				}
+				ts[i] = point.get(0).getAsFloat();
+				vs[i] = point.get(1).getAsFloat();
+				if (i > 0 && ts[i] <= ts[i - 1]) {
+					throw new IllegalArgumentException("Curve times must be strictly ascending: " + point);
+				}
+			}
+			if (ts.length < 2 || Math.abs(ts[0]) > 1.0e-4F || Math.abs(ts[ts.length - 1] - 1.0F) > 1.0e-4F) {
+				throw new IllegalArgumentException("Curve times must start at 0 and end at 1");
+			}
+			return EasingFunction.curve("inline", ts, vs);
+		}
+		throw new IllegalArgumentException("'easing' must be a name string or an object with a 'curve' array: " + element);
 	}
 
 	private static List<BlockPos> parsePositions(final JsonObject json, final Map<String, ParamSpec> params) {
@@ -181,7 +218,7 @@ public class VFXDefinition {
 		Identifier effectId = Identifier.parse(GsonHelper.getAsString(object, "effect"));
 		float delay = GsonHelper.getAsFloat(object, "delay", 0.0F);
 		int duration = GsonHelper.getAsInt(object, "duration", 0);
-		EasingType easing = object.has("easing") && !object.get("easing").isJsonNull() ? EasingType.fromString(GsonHelper.getAsString(object, "easing")) : null;
+		EasingFunction easing = object.has("easing") && !object.get("easing").isJsonNull() ? parseEasing(object.get("easing")) : null;
 		Map<String, Float> overrides = new LinkedHashMap<>();
 		if (object.has("params")) {
 			JsonObject paramsJson = GsonHelper.getAsJsonObject(object, "params");
@@ -207,7 +244,7 @@ public class VFXDefinition {
 	 * @param params  constant parameter overrides
 	 * @param easing  easing override (null = the child definition default)
 	 */
-	public record ChildEffect(Identifier effect, float delay, int duration, Map<String, Float> params, EasingType easing) {
+	public record ChildEffect(Identifier effect, float delay, int duration, Map<String, Float> params, EasingFunction easing) {
 	}
 
 	private static ParamSpec parseParam(final JsonElement element) {
@@ -221,21 +258,24 @@ public class VFXDefinition {
 
 		if (element.isJsonObject()) {
 			JsonObject object = element.getAsJsonObject();
+			ParamSpec spec;
 			if (object.has("bind")) {
-				return ParamSpec.bound(parseBound(object));
-			}
-			if (object.has("keyframes")) {
-				return ParamSpec.keyframed(parseKeyframes(object));
-			}
-			if (object.has("start") && object.has("end")) {
+				spec = ParamSpec.bound(parseBound(object));
+			} else if (object.has("keyframes")) {
+				spec = ParamSpec.keyframed(parseKeyframes(object));
+			} else if (object.has("start") && object.has("end")) {
 				float start = GsonHelper.getAsFloat(object, "start");
 				float end = GsonHelper.getAsFloat(object, "end");
-				return ParamSpec.animated(start, end);
+				spec = ParamSpec.animated(start, end);
+			} else if (object.has("value")) {
+				spec = ParamSpec.constant(GsonHelper.getAsFloat(object, "value"));
+			} else {
+				throw new IllegalArgumentException("Animated parameter must define 'start' and 'end', 'keyframes' or 'value': " + element);
 			}
-			if (object.has("value")) {
-				return ParamSpec.constant(GsonHelper.getAsFloat(object, "value"));
+			if (object.has("multiply")) {
+				spec = spec.multiplied(parseBound(GsonHelper.getAsJsonObject(object, "multiply")));
 			}
-			throw new IllegalArgumentException("Animated parameter must define 'start' and 'end', 'keyframes' or 'value': " + element);
+			return spec;
 		}
 
 		throw new IllegalArgumentException("Unsupported parameter value: " + element);
@@ -248,7 +288,7 @@ public class VFXDefinition {
 			JsonObject frame = GsonHelper.convertToJsonObject(entry, "keyframe");
 			float time = GsonHelper.getAsFloat(frame, "time");
 			float value = GsonHelper.getAsFloat(frame, "value");
-			EasingType easing = EasingType.fromString(GsonHelper.getAsString(frame, "easing", "LINEAR"));
+			EasingFunction easing = parseEasing(frame.get("easing"));
 			keyframes.add(new Keyframe(time, value, easing));
 		}
 		return keyframes;
@@ -288,10 +328,11 @@ public class VFXDefinition {
 	 * @param overrides     user-supplied constant parameter overrides (may be empty)
 	 * @param easing        the effective easing curve (payload value, or the definition default)
 	 */
-	public VFXTimeline createTimeline(final float durationTicks, final Map<String, Float> overrides, final EasingType easing) {
+	public VFXTimeline createTimeline(final float durationTicks, final Map<String, Float> overrides, final EasingFunction easing) {
 		float duration = Math.max(1.0F, durationTicks);
 		Map<String, AnimatedValue> values = new LinkedHashMap<>();
 		Map<String, BoundParam> bindings = new LinkedHashMap<>();
+		Map<String, BoundParam> multipliers = new LinkedHashMap<>();
 		for (Map.Entry<String, ParamSpec> entry : this.params.entrySet()) {
 			String name = entry.getKey();
 			ParamSpec spec = entry.getValue();
@@ -307,8 +348,11 @@ public class VFXDefinition {
 			} else {
 				values.put(name, AnimatedValue.constant(spec.constant()));
 			}
+			if (spec.multiply() != null) {
+				multipliers.put(name, spec.multiply());
+			}
 		}
-		return new VFXTimeline(duration, values, bindings);
+		return new VFXTimeline(duration, values, bindings, multipliers);
 	}
 
 	/**
@@ -334,7 +378,7 @@ public class VFXDefinition {
 		return this.defaultDuration;
 	}
 
-	public EasingType getDefaultEasing() {
+	public EasingFunction getDefaultEasing() {
 		return this.defaultEasing;
 	}
 
@@ -387,7 +431,8 @@ public class VFXDefinition {
 
 	/**
 	 * A single parameter specification: a constant value, an animated start/end pair, a list
-	 * of keyframes (in ticks relative to the effect start) or a world binding.
+	 * of keyframes (in ticks relative to the effect start), a world binding and/or a
+	 * multiplicative world binding ({@link #multiply()}) applied on top of the base value.
 	 *
 	 * @param animated  true when the parameter animates between {@link #start()} and {@link #end()}
 	 * @param constant  constant value (when not animated)
@@ -395,22 +440,31 @@ public class VFXDefinition {
 	 * @param end       end value (when animated)
 	 * @param keyframes keyframe list (when keyframed); empty otherwise
 	 * @param bound     world binding (when bound); {@code null} otherwise
+	 * @param multiply  world binding whose evaluated value is multiplied onto the base value
+	 *                  (e.g. keyframes Г— proximity); {@code null} when not used
 	 */
-	public record ParamSpec(boolean animated, float constant, float start, float end, List<Keyframe> keyframes, BoundParam bound) {
+	public record ParamSpec(boolean animated, float constant, float start, float end, List<Keyframe> keyframes, BoundParam bound, BoundParam multiply) {
 		public static ParamSpec constant(final float value) {
-			return new ParamSpec(false, value, 0.0F, 0.0F, List.of(), null);
+			return new ParamSpec(false, value, 0.0F, 0.0F, List.of(), null, null);
 		}
 
 		public static ParamSpec animated(final float start, final float end) {
-			return new ParamSpec(true, 0.0F, start, end, List.of(), null);
+			return new ParamSpec(true, 0.0F, start, end, List.of(), null, null);
 		}
 
 		public static ParamSpec keyframed(final List<Keyframe> keyframes) {
-			return new ParamSpec(false, 0.0F, 0.0F, 0.0F, List.copyOf(keyframes), null);
+			return new ParamSpec(false, 0.0F, 0.0F, 0.0F, List.copyOf(keyframes), null, null);
 		}
 
 		public static ParamSpec bound(final BoundParam binding) {
-			return new ParamSpec(false, 0.0F, 0.0F, 0.0F, List.of(), binding);
+			return new ParamSpec(false, 0.0F, 0.0F, 0.0F, List.of(), binding, null);
+		}
+
+		/**
+		 * Returns a copy of this spec with the given multiplicative binding attached.
+		 */
+		public ParamSpec multiplied(final BoundParam multiplier) {
+			return new ParamSpec(this.animated, this.constant, this.start, this.end, this.keyframes, this.bound, multiplier);
 		}
 	}
 }

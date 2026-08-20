@@ -14,11 +14,23 @@
 // и шлёт VFXTriggerPayload игроку. Возвращает false, если effectId неизвестен.
 boolean sendEffect(ServerPlayer player, Identifier effectId, Map<String, Float> overrides, @Nullable EasingType easing);
 
+// То же, но с явной мировой позицией: клиент сразу перепривязывает пространственные биндинги
+// (screen_x/screen_y/proximity) к этой точке и использует её для позиций эффекта —
+// без хака с pos_x/pos_y/pos_z.
+boolean sendEffect(ServerPlayer player, Identifier effectId, Vec3 worldPos, Map<String, Float> overrides, @Nullable EasingType easing);
+
+// То же с явным instance id (0 = клиент назначит сам). Позволяет позже остановить именно этот
+// экземпляр через sendStop(player, effectId, instanceId), а не все экземпляры эффекта разом.
+boolean sendEffect(ServerPlayer player, Identifier effectId, long instanceId, @Nullable Vec3 worldPos, Map<String, Float> overrides, @Nullable EasingType easing);
+
 // Явный вариант без обращения к реестру определений — все поля пакета задаются вручную.
 void sendEffect(ServerPlayer player, Identifier effectId, int durationTicks, Map<String, Float> params, EasingType easing);
 
-// Останавливает эффект на клиенте игрока.
+// Останавливает эффект на клиенте игрока (все его экземпляры).
 void sendStop(ServerPlayer player, Identifier effectId);
+
+// Останавливает один конкретный экземпляр эффекта (см. sendEffect с instanceId).
+void sendStop(ServerPlayer player, Identifier effectId, long instanceId);
 
 // Живой override параметра играющего эффекта (без перезапуска таймлайна).
 // Игнорируется клиентом с warning'ом в лог, если эффект сейчас не играет.
@@ -37,7 +49,12 @@ void sendKeyframe(ServerPlayer player, Identifier effectId, String param, int ti
 boolean playEffect(Identifier effectId, int durationTicks, Map<String, Float> params, @Nullable EasingType easing);
 boolean playEffect(Identifier effectId, int durationTicks, Map<String, Float> params); // linear easing
 
-boolean stopEffect(Identifier effectId);
+// Как playEffect, но возвращает id созданного экземпляра (0 при ошибке) — чтобы остановить
+// один конкретный экземпляр из нескольких одновременных через stopEffect(instanceId).
+long playEffectId(Identifier effectId, int durationTicks, Map<String, Float> params, @Nullable EasingType easing);
+
+boolean stopEffect(Identifier effectId);          // все экземпляры эффекта
+boolean stopEffect(long instanceId);              // один конкретный экземпляр
 boolean stopAllEffects();
 ```
 

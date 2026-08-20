@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * A scalar value that animates over time between keyframes using an {@link EasingType}.
+ * A scalar value that animates over time between keyframes using an {@link EasingFunction}.
  * The time domain is expressed in game ticks; call {@link #update(float)} every frame with
  * the current elapsed time (in ticks) and read the result with {@link #get()}.
  */
@@ -45,8 +45,8 @@ public class AnimatedValue {
 	 * @param endValue    value at end
 	 * @param easing      easing curve between the values
 	 */
-	public static AnimatedValue between(final float startTime, final float endTime, final float startValue, final float endValue, final EasingType easing) {
-		return new AnimatedValue(List.of(new Keyframe(startTime, startValue, easing), new Keyframe(endTime, endValue, EasingType.LINEAR)));
+	public static AnimatedValue between(final float startTime, final float endTime, final float startValue, final float endValue, final EasingFunction easing) {
+		return new AnimatedValue(List.of(new Keyframe(startTime, startValue, easing), new Keyframe(endTime, endValue, EasingFunction.builtIn(EasingType.LINEAR))));
 	}
 
 	/**

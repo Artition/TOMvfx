@@ -1,6 +1,7 @@
 package com.tom.vfx.client.effect;
 
 import com.tom.vfx.effect.AnimatedValue;
+import com.tom.vfx.effect.EasingFunction;
 import com.tom.vfx.effect.EasingType;
 import com.tom.vfx.effect.VFXActiveEffect;
 import com.tom.vfx.effect.VFXDefinition;
@@ -11,11 +12,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.core.BlockPos;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +38,7 @@ public class VFXEffectManager {
 
 	private final List<VFXActiveEffect> active = new ArrayList<>();
 	private final List<ScheduledPlay> scheduled = new ArrayList<>();
+	private final AtomicLong instanceCounter = new AtomicLong();
 	private float clock;
 
 	private VFXEffectManager() {
@@ -41,6 +46,14 @@ public class VFXEffectManager {
 
 	public static VFXEffectManager get() {
 		return INSTANCE;
+	}
+
+	/**
+	 * Allocates a fresh instance id (used by the client dispatcher to return an id to the
+	 * caller before the actual play is scheduled on the render thread).
+	 */
+	public long allocateInstanceId() {
+		return this.instanceCounter.incrementAndGet();
 	}
 
 	/**
@@ -66,7 +79,7 @@ public class VFXEffectManager {
 				return false;
 			});
 			for (ScheduledPlay play : due) {
-				this.play(play.effectId(), play.durationTicks(), play.params(), play.easing(), play.depth());
+				this.play(play.effectId(), play.durationTicks(), 0L, null, play.params(), play.easing(), play.depth());
 			}
 		}
 		for (VFXActiveEffect effect : this.active) {
@@ -75,65 +88,96 @@ public class VFXEffectManager {
 	}
 
 	/**
-	 * Starts an effect. When the effect id is unknown, the effect is ignored with a warning.
+	 * Starts an effect and returns the id of the created instance. When the effect id is
+	 * unknown, the effect is ignored with a warning and {@code 0} is returned.
 	 *
 	 * @param effectId      effect id (built-in or datapack-defined)
 	 * @param durationTicks duration in ticks (0 uses the definition default, negative = persistent)
 	 * @param params        parameter overrides
 	 * @param easing        easing curve (may be null for the definition default)
+	 * @return the instance id, or {@code 0} when the effect was ignored
 	 */
-	public void play(final Identifier effectId, final int durationTicks, final Map<String, Float> params, final EasingType easing) {
-		this.play(effectId, durationTicks, params, easing, 0);
+	public long play(final Identifier effectId, final int durationTicks, final Map<String, Float> params, final EasingType easing) {
+		return this.play(effectId, durationTicks, 0L, null, params, EasingFunction.builtIn(easing), 0);
 	}
 
-	private void play(final Identifier effectId, final int durationTicks, final Map<String, Float> params, final EasingType easing, final int depth) {
+	/**
+	 * Starts an effect with an explicit instance id and an optional world position. When
+	 * {@code instanceId} is non-zero the created instance adopts it (used by the network stop
+	 * action to target one of several concurrent instances of the same effect); when zero a new
+	 * id is allocated. The position, when present, re-anchors spatial world bindings
+	 * ({@code screen_x/y}, {@code proximity}) to that point.
+	 *
+	 * @param effectId      effect id (built-in or datapack-defined)
+	 * @param durationTicks duration in ticks (0 uses the definition default, negative = persistent)
+	 * @param instanceId    explicit instance id (0 = allocate a new one)
+	 * @param position      world position to anchor spatial bindings to (may be null)
+	 * @param params        parameter overrides
+	 * @param easing        easing curve (may be null for the definition default)
+	 * @return the instance id, or {@code 0} when the effect was ignored
+	 */
+	public long play(final Identifier effectId, final int durationTicks, final long instanceId, final @Nullable Vec3 position, final Map<String, Float> params, final EasingFunction easing) {
+		return this.play(effectId, durationTicks, instanceId, position, params, easing, 0);
+	}
+
+	/**
+	 * Starts an effect with an explicit instance id, world position and easing function (used by
+	 * the network receiver and by scheduled collection children).
+	 */
+	public long play(final Identifier effectId, final int durationTicks, final long instanceId, final @Nullable Vec3 position, final Map<String, Float> params, final EasingFunction easing, final int depth) {
 		VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
 		VFXEffectType type = definition != null ? definition.getType() : VFXEffectType.fromString(effectId.getPath());
 		if (type == null) {
 			LOGGER.warn("Ignoring unknown VFX effect '{}'", effectId);
-			return;
+			return 0L;
 		}
 		if (type == VFXEffectType.COLLECTION) {
 			if (definition == null || depth >= MAX_COLLECTION_DEPTH) {
 				LOGGER.warn("Ignoring collection '{}' (unknown or nested too deeply)", effectId);
-				return;
+				return 0L;
 			}
-		int scheduledCount = 0;
-		for (VFXDefinition.ChildEffect child : definition.getChildren()) {
-			if (this.scheduled.size() >= MAX_SCHEDULED_EFFECTS) {
-				LOGGER.warn("Scheduled VFX effect limit ({}) reached; dropping remaining collection children", MAX_SCHEDULED_EFFECTS);
-				break;
+			int scheduledCount = 0;
+			for (VFXDefinition.ChildEffect child : definition.getChildren()) {
+				if (this.scheduled.size() >= MAX_SCHEDULED_EFFECTS) {
+					LOGGER.warn("Scheduled VFX effect limit ({}) reached; dropping remaining collection children", MAX_SCHEDULED_EFFECTS);
+					break;
+				}
+				this.scheduled.add(new ScheduledPlay(this.clock + child.delay(), child.effect(), child.duration(), child.params(), child.easing(), depth + 1));
+				scheduledCount++;
 			}
-			this.scheduled.add(new ScheduledPlay(this.clock + child.delay(), child.effect(), child.duration(), child.params(), child.easing(), depth + 1));
-			scheduledCount++;
-		}
-		LOGGER.info("Scheduled {} child effect(s) from collection '{}'", scheduledCount, effectId);
+			LOGGER.info("Scheduled {} child effect(s) from collection '{}'", scheduledCount, effectId);
 			if (definition.getSound() != null) {
 				playSound(definition.getSound());
 			}
-			return;
+			return 0L;
 		}
 
+		long id = instanceId != 0L ? instanceId : this.instanceCounter.incrementAndGet();
 		boolean loop = definition != null && definition.isLoop();
 		boolean persistent = definition != null && (definition.isPersistent() || loop || durationTicks < 0);
 		int duration = persistent ? (loop ? definition.getDefaultDuration() : Integer.MAX_VALUE) : (durationTicks > 0 ? durationTicks : (definition != null ? definition.getDefaultDuration() : 40));
-		EasingType effectiveEasing = easing != null ? easing : (definition != null ? definition.getDefaultEasing() : EasingType.LINEAR);
+		EasingFunction effectiveEasing = easing != null ? easing : (definition != null ? definition.getDefaultEasing() : EasingFunction.builtIn(EasingType.LINEAR));
 		VFXTimeline timeline = definition != null
 			? definition.createTimeline(duration, params, effectiveEasing)
 			: createConstantTimeline(duration, params);
 
 		int fadeTicks = definition != null ? definition.getFadeTicks() : 0;
 		List<BlockPos> positions = definition != null ? definition.getPositions() : List.of();
-		BlockPos payloadPos = payloadPosition(params);
+		BlockPos payloadPos = position != null
+			? new BlockPos((int) Math.floor(position.x()), (int) Math.floor(position.y()), (int) Math.floor(position.z()))
+			: payloadPosition(params);
 		if (payloadPos != null) {
-			// Explicit position overrides (e.g. /vfx playat) win over definition positions
-			// and re-anchor any spatial world bindings to that position.
+			// Explicit position overrides (e.g. /vfx playat or a network play with a position)
+			// win over definition positions and re-anchor any spatial world bindings to that position.
 			positions = List.of(payloadPos);
-			timeline.rebindPositions(payloadPos.getX(), payloadPos.getY(), payloadPos.getZ());
+			double px = position != null ? position.x() : payloadPos.getX();
+			double py = position != null ? position.y() : payloadPos.getY();
+			double pz = position != null ? position.z() : payloadPos.getZ();
+			timeline.rebindPositions(px, py, pz);
 		}
-		VFXActiveEffect effect = new VFXActiveEffect(effectId, type, this.clock, timeline, fadeTicks, loop, positions);
+		VFXActiveEffect effect = new VFXActiveEffect(effectId, type, id, this.clock, timeline, fadeTicks, loop, positions);
 		// Same-id replays stack as independent instances (e.g. several dents at once);
-		// /vfx stop removes every instance of the id. MAX_ACTIVE_EFFECTS caps the total.
+		// /vfx stop removes every instance of the id, stop(instanceId) removes one. MAX_ACTIVE_EFFECTS caps the total.
 		while (this.active.size() >= MAX_ACTIVE_EFFECTS) {
 			LOGGER.warn("Active VFX effect limit ({}) reached; removing oldest effect '{}'", MAX_ACTIVE_EFFECTS, this.active.get(0).getId());
 			this.active.remove(0);
@@ -156,8 +200,15 @@ public class VFXEffectManager {
 				}
 				snapshot.append(name).append("=bind(").append(timeline.getBindings().get(name).kind()).append(')');
 			}
-			LOGGER.info("Started VFX effect '{}' for {} ticks: {}", effectId, persistent ? "forever" : duration, snapshot);
+			for (String name : timeline.getMultipliers().keySet()) {
+				if (!snapshot.isEmpty()) {
+					snapshot.append(", ");
+				}
+				snapshot.append(name).append("=bind(").append(timeline.getMultipliers().get(name).kind()).append(")");
+			}
+			LOGGER.info("Started VFX effect '{}' (instance {}) for {} ticks: {}", effectId, id, persistent ? "forever" : duration, snapshot);
 		}
+		return id;
 	}
 
 	/**
@@ -176,6 +227,28 @@ public class VFXEffectManager {
 			}
 			return true;
 		});
+	}
+
+	/**
+	 * Stops one specific instance of an effect (identified by the id returned from
+	 * {@link #play(Identifier, int, Map, EasingType)} or the network stop action). Persistent
+	 * instances fade out over their definition's fade duration instead of disappearing instantly.
+	 *
+	 * @param instanceId the instance id to stop
+	 * @return {@code true} when an instance with that id was found
+	 */
+	public boolean stop(final long instanceId) {
+		for (VFXActiveEffect effect : this.active) {
+			if (effect.getInstanceId() == instanceId) {
+				if (effect.getFadeTicks() > 0 && !effect.isFadingOut()) {
+					effect.beginFadeOut(this.clock);
+				} else {
+					this.active.remove(effect);
+				}
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -208,7 +281,7 @@ public class VFXEffectManager {
 	 *
 	 * @return {@code true} when at least one running instance was found and updated
 	 */
-	public boolean setKeyframe(final Identifier effectId, final String name, final float time, final float value, final EasingType easing) {
+	public boolean setKeyframe(final Identifier effectId, final String name, final float time, final float value, final EasingFunction easing) {
 		boolean applied = false;
 		for (VFXActiveEffect effect : this.active) {
 			if (effect.getId().equals(effectId)) {
@@ -217,6 +290,13 @@ public class VFXEffectManager {
 			}
 		}
 		return applied;
+	}
+
+	/**
+	 * Live-overrides a parameter with a built-in easing type (wraps it into an easing function).
+	 */
+	public boolean setKeyframe(final Identifier effectId, final String name, final float time, final float value, final EasingType easing) {
+		return setKeyframe(effectId, name, time, value, EasingFunction.builtIn(easing));
 	}
 
 	/**
@@ -298,6 +378,6 @@ public class VFXEffectManager {
 	/**
 	 * A child effect waiting for its delay to elapse.
 	 */
-	private record ScheduledPlay(float at, Identifier effectId, int durationTicks, Map<String, Float> params, EasingType easing, int depth) {
+	private record ScheduledPlay(float at, Identifier effectId, int durationTicks, Map<String, Float> params, EasingFunction easing, int depth) {
 	}
 }
