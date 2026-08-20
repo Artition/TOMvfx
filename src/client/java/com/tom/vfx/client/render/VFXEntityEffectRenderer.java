@@ -50,10 +50,11 @@ import org.joml.Vector3f;
  * colour with the texture as the alpha mask, so the rim follows the texture contour. With a
  * {@code LEQUAL} depth test the inflated shell stays behind the entity's own surface, leaving a
  * clean rim around the silhouette; with {@code ALWAYS_PASS} it becomes a see-through glow. The
- * {@code width} parameter scales each cube around its own centre.
- * // ponytail: width is per-cube scale-around-centre (thickness varies with distance from the cube
- * // centre), not a constant world-space offset; switch to a normal-offset shader with a per-draw
- * // UBO if constant thickness is ever needed.
+ * {@code width} parameter is an absolute rim thickness in world units: each cube face is grown
+ * outwards by {@code width}, independent of the cube's size.
+ * // ponytail: thickness is achieved by per-axis scaling around the cube centre (an absolute
+ * // per-face offset), which is exact for axis-aligned boxes; a true normal-offset expansion that
+ * // also handles arbitrary rotation would need a per-draw UBO.
  */
 public final class VFXEntityEffectRenderer {
 	private static RenderPipeline entityFxPipeline(final String suffix, final CompareOp depthOp, final String define) {
@@ -182,7 +183,9 @@ public final class VFXEntityEffectRenderer {
 		String base = through ? "tompfx_entity_outline_visible" : "tompfx_entity_outline_occluded";
 		RenderPipeline pipeline = through ? OUTLINE_VISIBLE : OUTLINE_OCCLUDED;
 		RenderType renderType = typeFor(map, base, pipeline, texture);
-		float scale = 1.0F + width;
+		// Thickness in world units: each cube face grows outwards by `width`, independent of the
+		// cube's own size (see emitOutlineCube).
+		float thickness = width;
 
 		submitNodeCollector.submitCustomGeometry(poseStack, renderType, (pose, buffer) -> {
 			// The model may have been animated by the vanilla submit earlier this frame, but the
@@ -191,39 +194,54 @@ public final class VFXEntityEffectRenderer {
 			PoseStack stack = new PoseStack();
 			stack.last().set(pose);
 			model.root().visit(stack, (partPose, path, cubeIndex, cube) ->
-				emitOutlineCube(partPose, buffer, cube, scale, color, state.lightCoords));
+				emitOutlineCube(partPose, buffer, cube, thickness, color, state.lightCoords));
 		});
 	}
 
 	/**
-	 * Emits one model cube scaled around its own centre. Vertices are transformed by the part's
-	 * matrix ({@code pose}), keeping the cube's normals, UVs and texture alpha (the shader masks
+	 * Emits one model cube expanded around its own centre. Each axis is scaled so that every face
+	 * moves outwards by a fixed {@code thickness} (world units) — i.e. the rim thickness is
+	 * independent of the cube's size, so small cubes (fingers, ears) get the same rim as the torso
+	 * instead of a proportionally tiny one. Vertices are transformed by the part's matrix
+	 * ({@code pose}), keeping the cube's normals, UVs and texture alpha (the shader masks
 	 * transparent texels and discards front faces).
 	 */
 	private static void emitOutlineCube(
 		final PoseStack.Pose pose,
 		final VertexConsumer buffer,
 		final ModelPart.Cube cube,
-		final float scale,
+		final float thickness,
 		final int color,
 		final int lightCoords
 	) {
-		// Local cube centre in world units (cube coords are in 1/16 texture units).
+		// Local cube centre and half-extents in world units (cube coords are in 1/16 texture units).
 		float cx = (cube.minX + cube.maxX) / 32.0F;
 		float cy = (cube.minY + cube.maxY) / 32.0F;
 		float cz = (cube.minZ + cube.maxZ) / 32.0F;
+		float hx = (cube.maxX - cube.minX) / 32.0F;
+		float hy = (cube.maxY - cube.minY) / 32.0F;
+		float hz = (cube.maxZ - cube.minZ) / 32.0F;
+		float sx = growth(hx, thickness);
+		float sy = growth(hy, thickness);
+		float sz = growth(hz, thickness);
 		Vector3f pos = new Vector3f();
 		Vector3f normal = new Vector3f();
 		for (ModelPart.Polygon polygon : cube.polygons) {
 			pose.transformNormal(polygon.normal(), normal);
 			for (ModelPart.Vertex v : polygon.vertices()) {
-				float x = cx + (v.worldX() - cx) * scale;
-				float y = cy + (v.worldY() - cy) * scale;
-				float z = cz + (v.worldZ() - cz) * scale;
+				float x = cx + (v.worldX() - cx) * sx;
+				float y = cy + (v.worldY() - cy) * sy;
+				float z = cz + (v.worldZ() - cz) * sz;
 				pose.pose().transformPosition(x, y, z, pos);
 				buffer.addVertex(pos.x(), pos.y(), pos.z(), color, v.u(), v.v(), OverlayTexture.NO_OVERLAY, lightCoords, normal.x(), normal.y(), normal.z());
 			}
 		}
+	}
+
+	/** Scale factor that grows each face of a cube of the given half-extent by {@code thickness}. */
+	private static float growth(final float halfExtent, final float thickness) {
+		// Degenerate (flat) cubes along an axis are not expanded on that axis to avoid exploding.
+		return halfExtent > 1.0E-4F ? 1.0F + thickness / halfExtent : 1.0F;
 	}
 
 	private static int argb(final VFXActiveEffect effect, final float alpha) {
