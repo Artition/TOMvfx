@@ -49,8 +49,10 @@ public final class CameraShakeManager {
 		double timeSeconds = elapsedTicks / 20.0;
 		float envelope = EasingType.SMOOTHSTEP.apply(1.0F - effect.getProgress());
 		// A per-instance seed shifts the noise domain, so every /vfx play of the same shake
-		// produces a different, non-repeating pattern.
-		double phase = effect.getStartTime() + effect.getInstanceSeed() * 0.0001;
+		// produces a different, non-repeating pattern. The seed is masked to 32 bits: a raw
+		// 64-bit seed * 0.0001 overflows fastFloor's int cast and collapses every noise sample
+		// to exactly zero, which silently kills the shake.
+		double phase = effect.getStartTime() + (effect.getInstanceSeed() & 0xFFFFFFFFL) * 0.0001;
 
 		double n1 = SimplexNoise.noise(timeSeconds * FREQUENCY, phase, 0.0);
 		double n2 = SimplexNoise.noise(0.0, timeSeconds * FREQUENCY, phase);
