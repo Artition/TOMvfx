@@ -36,6 +36,10 @@ public class VFXClient implements ClientModInitializer {
 
 	private void handleSync(final VFXSyncPayload payload, final ClientPlayNetworking.Context context) {
 		context.client().execute(() -> {
+			if (payload.protocolVersion() != VFXSyncPayload.PROTOCOL_VERSION) {
+				LOGGER.warn("Ignoring VFX sync packet from server: protocol version mismatch (server={}, client={})", payload.protocolVersion(), VFXSyncPayload.PROTOCOL_VERSION);
+				return;
+			}
 			VFXDefinitionManager.get().applySynced(payload.definitions());
 			VFXCurveManager.get().applySynced(payload.curves());
 			LOGGER.info("Received VFX sync: {} definitions, {} curves", payload.definitions().size(), payload.curves().size());
@@ -48,10 +52,10 @@ public class VFXClient implements ClientModInitializer {
 				LOGGER.warn("Ignoring VFX packet from server: protocol version mismatch (server={}, client={})", payload.protocolVersion(), VFXTriggerPayload.PROTOCOL_VERSION);
 				return;
 			}
-			LOGGER.info("Received VFX packet: action={}, effect={}, duration={}, instance={}, position={}, params={}", payload.action(), payload.effectId(), payload.durationTicks(), payload.instanceId(), payload.position(), payload.params().keySet());
+			LOGGER.info("Received VFX packet: action={}, effect={}, duration={}, instance={}, params={}", payload.action(), payload.effectId(), payload.durationTicks(), payload.instanceId(), payload.params().keySet());
 			if (payload.action() == VFXAction.STOP) {
 				if (payload.instanceId() != 0L) {
-					VFXEffectManager.get().stop(payload.instanceId());
+					VFXEffectManager.get().stop(payload.effectId(), payload.instanceId());
 				} else {
 					VFXEffectManager.get().stop(payload.effectId());
 				}

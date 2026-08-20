@@ -31,6 +31,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permission;
+import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -50,6 +52,7 @@ public final class VFXCommand {
 			Commands.literal("vfx")
 				.then(
 					Commands.literal("play")
+						.requires(VFXCommand::requirePermission)
 						.then(
 							Commands.argument("effect", IdentifierArgument.id())
 								.suggests(VFXCommand::suggestEffects)
@@ -62,6 +65,7 @@ public final class VFXCommand {
 			)
 			.then(
 				Commands.literal("playat")
+					.requires(VFXCommand::requirePermission)
 					.then(
 						Commands.argument("effect", IdentifierArgument.id())
 							.suggests(VFXCommand::suggestEffects)
@@ -77,6 +81,7 @@ public final class VFXCommand {
 			)
 			.then(
 				Commands.literal("stop")
+						.requires(VFXCommand::requirePermission)
 						.then(
 							Commands.argument("effect", IdentifierArgument.id())
 								.suggests(VFXCommand::suggestEffects)
@@ -89,6 +94,7 @@ public final class VFXCommand {
 				)
 				.then(
 					Commands.literal("set")
+						.requires(VFXCommand::requirePermission)
 						.then(
 							Commands.argument("effect", IdentifierArgument.id())
 								.suggests(VFXCommand::suggestEffects)
@@ -105,6 +111,7 @@ public final class VFXCommand {
 				)
 				.then(
 					Commands.literal("key")
+						.requires(VFXCommand::requirePermission)
 						.then(
 							Commands.argument("effect", IdentifierArgument.id())
 								.suggests(VFXCommand::suggestEffects)
@@ -136,6 +143,15 @@ Commands.argument("targets", EntityArgument.players())
 				)
 				.then(Commands.literal("list").executes(VFXCommand::list))
 		);
+	}
+
+	/**
+	 * Restricts the mutating subcommands ({@code play}/{@code playat}/{@code stop}/{@code set}/{@code key})
+	 * to operators (gamemaster level 2). {@code list} stays available to everyone. This prevents a
+	 * non-operator player from triggering or stopping VFX effects on other players' clients.
+	 */
+	private static boolean requirePermission(final CommandSourceStack source) {
+		return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS));
 	}
 
 	private static int play(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {

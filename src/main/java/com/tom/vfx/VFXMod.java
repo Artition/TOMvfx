@@ -62,6 +62,7 @@ public class VFXMod implements ModInitializer {
 
 	private static void sendSync(final ServerPlayer player) {
 		ServerPlayNetworking.send(player, new VFXSyncPayload(
+			VFXSyncPayload.PROTOCOL_VERSION,
 			new HashMap<>(VFXDefinitionManager.get().getRawDefinitions()),
 			new HashMap<>(VFXCurveManager.get().getRawCurves())
 		));

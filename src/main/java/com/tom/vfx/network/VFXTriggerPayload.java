@@ -30,6 +30,8 @@ public record VFXTriggerPayload(
 	String easing
 ) implements CustomPacketPayload {
 	public static final byte PROTOCOL_VERSION = 4;
+	/** Safety cap on the number of parameters a play packet may carry (server input, see AGENTS.md). */
+	public static final int MAX_PARAMS = 32;
 	public static final Type<VFXTriggerPayload> TYPE = new Type<>(Identifier.fromNamespaceAndPath("tompfx", "vfx_trigger"));
 
 	public static final StreamCodec<ByteBuf, VFXAction> ACTION_CODEC = ByteBufCodecs.BYTE.map(VFXAction::fromId, VFXAction::getId);
@@ -59,7 +61,7 @@ public record VFXTriggerPayload(
 		VFXTriggerPayload::instanceId,
 		OPTIONAL_VEC3,
 		VFXTriggerPayload::position,
-		ByteBufCodecs.map(HashMap::new, ByteBufCodecs.STRING_UTF8, ByteBufCodecs.FLOAT),
+		ByteBufCodecs.map(HashMap::new, ByteBufCodecs.STRING_UTF8, ByteBufCodecs.FLOAT, MAX_PARAMS),
 		VFXTriggerPayload::params,
 		ByteBufCodecs.STRING_UTF8,
 		VFXTriggerPayload::easing,

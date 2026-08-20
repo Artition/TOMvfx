@@ -35,6 +35,7 @@ public class VFXEffectManager {
 	private static final int MAX_COLLECTION_DEPTH = 4;
 	private static final int MAX_ACTIVE_EFFECTS = 64;
 	private static final int MAX_SCHEDULED_EFFECTS = 128;
+	private static final int MAX_DURATION_TICKS = 20 * 60 * 60; // 1 real hour, safety cap on server-supplied duration
 
 	private final List<VFXActiveEffect> active = new ArrayList<>();
 	private final List<ScheduledPlay> scheduled = new ArrayList<>();
@@ -154,8 +155,15 @@ public class VFXEffectManager {
 
 		long id = instanceId != 0L ? instanceId : this.instanceCounter.incrementAndGet();
 		boolean loop = definition != null && definition.isLoop();
-		boolean persistent = definition != null && (definition.isPersistent() || loop || durationTicks < 0);
-		int duration = persistent ? (loop ? definition.getDefaultDuration() : Integer.MAX_VALUE) : (durationTicks > 0 ? durationTicks : (definition != null ? definition.getDefaultDuration() : 40));
+		// Cap server-supplied durations: a negative (persistent) value or an absurdly long one
+		// from a hostile/buggy server would otherwise pin an effect forever. Definition-driven
+		// persistent/loop effects still run forever as intended.
+		boolean persistentFromServer = definition == null && durationTicks < 0;
+		boolean persistent = definition != null && (definition.isPersistent() || loop);
+		int clampedTicks = Math.min(Math.max(durationTicks, 0), MAX_DURATION_TICKS);
+		int duration = persistent
+			? (loop ? definition.getDefaultDuration() : Integer.MAX_VALUE)
+			: (persistentFromServer ? Integer.MAX_VALUE : (clampedTicks > 0 ? clampedTicks : (definition != null ? definition.getDefaultDuration() : 40)));
 		EasingFunction effectiveEasing = easing != null ? easing : (definition != null ? definition.getDefaultEasing() : EasingFunction.builtIn(EasingType.LINEAR));
 		VFXTimeline timeline = definition != null
 			? definition.createTimeline(duration, params, effectiveEasing)
@@ -240,6 +248,32 @@ public class VFXEffectManager {
 	public boolean stop(final long instanceId) {
 		for (VFXActiveEffect effect : this.active) {
 			if (effect.getInstanceId() == instanceId) {
+				if (effect.getFadeTicks() > 0 && !effect.isFadingOut()) {
+					effect.beginFadeOut(this.clock);
+				} else {
+					this.active.remove(effect);
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Stops one specific instance of an effect, but only when that instance actually belongs to
+	 * the given effect id. Used by the network stop action so a server-supplied instance id
+	 * cannot be used to stop an unrelated instance.
+	 *
+	 * @param effectId   the effect the instance must belong to
+	 * @param instanceId the instance id to stop
+	 * @return {@code true} when a matching instance was found and stopped
+	 */
+	public boolean stop(final Identifier effectId, final long instanceId) {
+		for (VFXActiveEffect effect : this.active) {
+			if (effect.getInstanceId() == instanceId) {
+				if (!effect.getId().equals(effectId)) {
+					return false;
+				}
 				if (effect.getFadeTicks() > 0 && !effect.isFadingOut()) {
 					effect.beginFadeOut(this.clock);
 				} else {
