@@ -5,7 +5,6 @@ import com.tom.vfx.client.shake.CameraShakeManager;
 import com.tom.vfx.client.shake.CameraSmoothingManager;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -63,14 +62,10 @@ public abstract class CameraMixin {
 		}
 	}
 
-	@Inject(method = "prepareCullFrustum(Lorg/joml/Matrix4fc;Lorg/joml/Matrix4f;Lnet/minecraft/world/phys/Vec3;)V", at = @At("HEAD"))
-	private void tompfx$applyCameraModifiers(final CallbackInfo ci) {
+	@Inject(method = "update(Lnet/minecraft/client/DeltaTracker;)V", at = @At("TAIL"))
+	private void tompfx$applyShake(final DeltaTracker deltaTracker, final CallbackInfo ci) {
 		// Cinematic smoothing first: applies inertia to the base rotation, then the shake offset
-		// is layered on top. This runs BEFORE the cull frustum and view matrix are built (which
-		// happens right after alignWithEntity in Camera.update), so the render frustum, the view
-		// matrix and the orientation all stay in sync — otherwise the world would be culled /
-		// rendered against a stale rotation and "slide off".
-		DeltaTracker deltaTracker = Minecraft.getInstance().getDeltaTracker();
+		// is layered on top so the two don't fight each other.
 		float deltaSeconds = deltaTracker.getRealtimeDeltaTicks() / 20.0f;
 		float[] smoothed = CameraSmoothingManager.smooth(this.yRot, this.xRot, deltaSeconds);
 		float baseYaw = smoothed[0];
