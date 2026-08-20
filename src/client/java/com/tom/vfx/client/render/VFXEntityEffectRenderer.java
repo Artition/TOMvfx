@@ -7,11 +7,13 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.tom.vfx.effect.VFXActiveEffect;
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.client.model.Model;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
@@ -20,6 +22,7 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
+import org.joml.Vector3f;
 
 /**
  * Second-pass renderer for {@code entity_tint} and {@code entity_outline} effects. Both effects
@@ -39,18 +42,18 @@ import net.minecraft.util.Mth;
  * Depth is {@code LEQUAL} by default ({@code through_blocks = 0}) or {@code ALWAYS_PASS} when the
  * effect should be visible through terrain.</p>
  *
- * <p><b>Outline</b> is an inverted hull: the model is re-submitted scaled around its vertical
- * centre and only back-facing fragments are kept (front faces are discarded in the fragment
- * shader — the pipeline API only offers back-face culling, no front-face mode). The output is a
- * flat fill colour with the texture as the alpha mask, so the rim follows the texture contour.
- * With a {@code LEQUAL} depth test the inflated shell stays behind the entity's own surface,
- * leaving a clean rim around the silhouette; with {@code ALWAYS_PASS} it becomes a see-through
- * glow. The {@code width} parameter scales the silhouette (uniform scale around the model
- * centre), not a per-vertex normal offset: a per-draw width uniform would need a custom UBO that
- * the {@code submitModel} draw path cannot bind.
- * // ponytail: width is scale-around-centre (thickness varies with distance from centre), not a
- * // constant world-space offset; switch to a normal-offset shader with a per-draw UBO if constant
- * // thickness is ever needed.
+ * <p><b>Outline</b> is an inverted hull: every model cube is re-emitted scaled around its <em>own</em>
+ * centre via {@code submitCustomGeometry}, so the shell grows from each part independently
+ * (expanding the whole model from its middle drifted the rim downwards on tall/asymmetric
+ * models). Only back-facing fragments are kept (front faces are discarded in the fragment shader
+ * — the pipeline API only offers back-face culling, no front-face mode). The output is a flat fill
+ * colour with the texture as the alpha mask, so the rim follows the texture contour. With a
+ * {@code LEQUAL} depth test the inflated shell stays behind the entity's own surface, leaving a
+ * clean rim around the silhouette; with {@code ALWAYS_PASS} it becomes a see-through glow. The
+ * {@code width} parameter scales each cube around its own centre.
+ * // ponytail: width is per-cube scale-around-centre (thickness varies with distance from the cube
+ * // centre), not a constant world-space offset; switch to a normal-offset shader with a per-draw
+ * // UBO if constant thickness is ever needed.
  */
 public final class VFXEntityEffectRenderer {
 	private static RenderPipeline entityFxPipeline(final String suffix, final CompareOp depthOp, final String define) {
@@ -154,9 +157,11 @@ public final class VFXEntityEffectRenderer {
 	}
 
 	/**
-	 * Inverted-hull outline pass: re-submits the model scaled around its vertical centre and lets
-	 * the shader keep only back-facing fragments, producing a rim around the entity silhouette.
-	 * The texture is used as the alpha mask so the rim follows the texture contour.
+	 * Outline pass as an inverted hull via {@code submitCustomGeometry}: the model's own cubes are
+	 * re-emitted, each scaled around its <em>own</em> centre (so the outline grows from every part
+	 * independently instead of expanding the whole model from its middle — which drifted the rim
+	 * downwards on tall/asymmetric models). The fragment shader keeps only back-facing fragments
+	 * (inverted hull) and the entity texture acts as the alpha mask.
 	 */
 	public static <S extends LivingEntityRenderState> void renderOutline(
 		final VFXActiveEffect effect,
@@ -176,18 +181,48 @@ public final class VFXEntityEffectRenderer {
 		Map<Identifier, RenderType> map = through ? OUTLINE_VISIBLE_TYPES : OUTLINE_OCCLUDED_TYPES;
 		String base = through ? "tompfx_entity_outline_visible" : "tompfx_entity_outline_occluded";
 		RenderPipeline pipeline = through ? OUTLINE_VISIBLE : OUTLINE_OCCLUDED;
+		RenderType renderType = typeFor(map, base, pipeline, texture);
+		float scale = 1.0F + width;
 
-		poseStack.pushPose();
-		try {
-			// Model space has +Y pointing down and the origin at the feet, so the vertical centre
-			// sits at -boundingBoxHeight/2. Scaling around it keeps the outline centred on the body.
-			float pivot = state.boundingBoxHeight / 2.0F;
-			poseStack.translate(0.0F, -pivot, 0.0F);
-			poseStack.scale(1.0F + width, 1.0F + width, 1.0F + width);
-			poseStack.translate(0.0F, pivot, 0.0F);
-			submit(state, poseStack, submitNodeCollector, model, typeFor(map, base, pipeline, texture), color);
-		} finally {
-			poseStack.popPose();
+		submitNodeCollector.submitCustomGeometry(poseStack, renderType, (pose, buffer) -> {
+			// The model may have been animated by the vanilla submit earlier this frame, but the
+			// custom-geometry pass is deferred, so ensure the pose is current before traversing.
+			model.setupAnim(state);
+			PoseStack stack = new PoseStack();
+			stack.last().set(pose);
+			model.root().visit(stack, (partPose, path, cubeIndex, cube) ->
+				emitOutlineCube(partPose, buffer, cube, scale, color, state.lightCoords));
+		});
+	}
+
+	/**
+	 * Emits one model cube scaled around its own centre. Vertices are transformed by the part's
+	 * matrix ({@code pose}), keeping the cube's normals, UVs and texture alpha (the shader masks
+	 * transparent texels and discards front faces).
+	 */
+	private static void emitOutlineCube(
+		final PoseStack.Pose pose,
+		final VertexConsumer buffer,
+		final ModelPart.Cube cube,
+		final float scale,
+		final int color,
+		final int lightCoords
+	) {
+		// Local cube centre in world units (cube coords are in 1/16 texture units).
+		float cx = (cube.minX + cube.maxX) / 32.0F;
+		float cy = (cube.minY + cube.maxY) / 32.0F;
+		float cz = (cube.minZ + cube.maxZ) / 32.0F;
+		Vector3f pos = new Vector3f();
+		Vector3f normal = new Vector3f();
+		for (ModelPart.Polygon polygon : cube.polygons) {
+			pose.transformNormal(polygon.normal(), normal);
+			for (ModelPart.Vertex v : polygon.vertices()) {
+				float x = cx + (v.worldX() - cx) * scale;
+				float y = cy + (v.worldY() - cy) * scale;
+				float z = cz + (v.worldZ() - cz) * scale;
+				pose.pose().transformPosition(x, y, z, pos);
+				buffer.addVertex(pos.x(), pos.y(), pos.z(), color, v.u(), v.v(), OverlayTexture.NO_OVERLAY, lightCoords, normal.x(), normal.y(), normal.z());
+			}
 		}
 	}
 
