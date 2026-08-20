@@ -160,7 +160,8 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 			Identifier.fromNamespaceAndPath("tompfx", "gradient_map"),
 			builtIn("tompfx", "gradient_map", VFXEffectType.GRADIENT_MAP, 40, EasingType.EASE_IN_OUT_CUBIC,
 				param("from_r", 0.1F), param("from_g", 0.0F), param("from_b", 0.2F),
-				param("to_r", 1.0F), param("to_g", 0.2F), param("to_b", 0.1F), param("intensity", 1.0F, 0.0F))
+				param("to_r", 1.0F), param("to_g", 0.2F), param("to_b", 0.1F), param("intensity", 1.0F, 0.0F),
+				param("mode", 0.0F), param("pos", 0.5F))
 		);
 		this.builtIns.put(
 			Identifier.fromNamespaceAndPath("tompfx", "posterize"),
