@@ -92,7 +92,7 @@ public class VFXEffectManager {
 				return false;
 			});
 			for (ScheduledPlay play : due) {
-				this.play(play.effectId(), play.durationTicks(), 0L, play.position(), List.of(), play.params(), play.easing(), play.depth());
+				this.play(play.effectId(), play.durationTicks(), 0L, play.position(), List.of(), play.params(), play.easing(), play.depth(), 0);
 			}
 		}
 		for (VFXActiveEffect effect : this.active) {
@@ -129,7 +129,7 @@ public class VFXEffectManager {
 	 * @return the instance id, or {@code 0} when the effect was ignored
 	 */
 	public long play(final Identifier effectId, final int durationTicks, final Map<String, Float> params, final EasingType easing) {
-		return this.play(effectId, durationTicks, 0L, null, List.of(), params, EasingFunction.builtIn(easing), 0);
+		return this.play(effectId, durationTicks, 0L, null, List.of(), params, EasingFunction.builtIn(easing), 0, 0);
 	}
 
 	/**
@@ -148,7 +148,7 @@ public class VFXEffectManager {
 	 * @return the instance id, or {@code 0} when the effect was ignored
 	 */
 	public long play(final Identifier effectId, final int durationTicks, final long instanceId, final @Nullable Vec3 position, final Map<String, Float> params, final EasingFunction easing) {
-		return this.play(effectId, durationTicks, instanceId, position, List.of(), params, easing, 0);
+		return this.play(effectId, durationTicks, instanceId, position, List.of(), params, easing, 0, 0);
 	}
 
 	/**
@@ -156,10 +156,21 @@ public class VFXEffectManager {
 	 * easing function (used by the network receiver and by scheduled collection children).
 	 */
 	public long play(final Identifier effectId, final int durationTicks, final long instanceId, final @Nullable Vec3 position, final List<UUID> entityUuids, final Map<String, Float> params, final EasingFunction easing) {
-		return this.play(effectId, durationTicks, instanceId, position, entityUuids, params, easing, 0);
+		return this.play(effectId, durationTicks, instanceId, position, entityUuids, params, easing, 0, 0);
 	}
 
-	private long play(final Identifier effectId, final int durationTicks, final long instanceId, final @Nullable Vec3 position, final List<UUID> entityUuids, final Map<String, Float> params, final EasingFunction easing, final int depth) {
+	/**
+	 * Same as {@link #play(Identifier, int, long, Vec3, List, Map, EasingFunction)} but resumes
+	 * the timeline from the given tick offset instead of its start (used when the server
+	 * re-applies an effect after a reconnect so it continues where it left off).
+	 *
+	 * @param elapsedTicks how far into the timeline to seek, in ticks (0 = start fresh)
+	 */
+	public long play(final Identifier effectId, final int durationTicks, final int elapsedTicks, final long instanceId, final @Nullable Vec3 position, final List<UUID> entityUuids, final Map<String, Float> params, final EasingFunction easing) {
+		return this.play(effectId, durationTicks, instanceId, position, entityUuids, params, easing, 0, elapsedTicks);
+	}
+
+	private long play(final Identifier effectId, final int durationTicks, final long instanceId, final @Nullable Vec3 position, final List<UUID> entityUuids, final Map<String, Float> params, final EasingFunction easing, final int depth, final int elapsedTicks) {
 		VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
 		VFXEffectType type = definition != null ? definition.getType() : VFXEffectType.fromString(effectId.getPath());
 		if (type == null) {
@@ -227,6 +238,11 @@ public class VFXEffectManager {
 			this.active.remove(0);
 		}
 		this.active.add(effect);
+		if (elapsedTicks > 0) {
+			// Resume: fast-forward the fresh instance so reconnects continue mid-animation
+			// instead of restarting from the first keyframe.
+			effect.update(this.clock + elapsedTicks);
+		}
 		if (definition != null && definition.getSound() != null) {
 			// Volume/pitch come from reserved effect parameters (constant, bound or expression),
 			// evaluated once at start time — matching the "one-shot sound" behaviour.

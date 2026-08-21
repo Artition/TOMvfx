@@ -87,6 +87,7 @@ The `vfxweaver:vfx_trigger` packet (`VFXTriggerPayload`), clientbound play.
 | `effectId` | `Identifier` | Effect id (built-in or datapack) |
 | `action` | `VFXAction` (`PLAY`/`STOP`/`SET_PARAM`/`KEYFRAME`) | `SET_PARAM`/`KEYFRAME` apply to **running** effect instances: `params` carries exactly one `name → value` entry, for `KEYFRAME` the frame time is in `durationTicks`, the segment easing in `easing` |
 | `durationTicks` | varint | 0 = definition default, negative = persistent (only for `PLAY`) |
+| `elapsedTicks` | varint | Resume offset: how far into the timeline the effect already is (only for `PLAY`, 0 = start fresh). Used when the server re-applies effects after a reconnect. |
 | `params` | `Map<String, Float>` | Constant overrides, numbers only |
 | `easing` | `EasingType` (string) | |
 

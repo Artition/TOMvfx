@@ -258,6 +258,7 @@ public final class VFXAPI {
 	 */
 	public static void sendKeyframe(final ServerPlayer player, final Identifier effectId, final String param, final int time, final float value, final EasingType easing) {
 		ServerPlayNetworking.send(player, VFXTriggerPayload.keyframe(effectId, param, time, value, easing));
+		VFXServerEffects.get().recordKeyframe(player, effectId, param, time, value, easing.name());
 	}
 
 	/**
@@ -273,5 +274,6 @@ public final class VFXAPI {
 	 */
 	public static void sendKeyframe(final ServerPlayer player, final Identifier effectId, final String param, final int time, final float value, final String easing) {
 		ServerPlayNetworking.send(player, VFXTriggerPayload.keyframe(effectId, param, time, value, easing));
+		VFXServerEffects.get().recordKeyframe(player, effectId, param, time, value, easing);
 	}
 }

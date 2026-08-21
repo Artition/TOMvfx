@@ -2,6 +2,7 @@ package dev.vfxweaver.effect;
 
 import dev.vfxweaver.network.VFXTriggerPayload;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -34,6 +35,8 @@ public final class VFXServerEffects {
 	private static final Logger LOGGER = LoggerFactory.getLogger("vfxweaver/server-effects");
 	/** Safety cap on tracked effects per player (external input, see AGENTS.md). */
 	private static final int MAX_EFFECTS_PER_PLAYER = 32;
+	/** Safety cap on recorded keyframes per effect (external input, see AGENTS.md). */
+	private static final int MAX_KEYS_PER_EFFECT = 32;
 	private static final VFXServerEffects INSTANCE = new VFXServerEffects();
 
 	/**
@@ -81,7 +84,9 @@ public final class VFXServerEffects {
 
 	/**
 	 * A recorded effect play: everything needed to re-send it later, plus the server tick it
-	 * started on so the remaining duration can be computed.
+	 * started on so the remaining duration can be computed. {@code keys} carries the keyframes
+	 * added after the play (via {@code /vfx key}) so a reconnect resumes the same animation
+	 * instead of restarting from the definition defaults.
 	 */
 	private record ActiveEffect(
 		Identifier effectId,
@@ -91,8 +96,15 @@ public final class VFXServerEffects {
 		List<UUID> entityUuids,
 		Map<String, Float> params,
 		String easing,
-		long startTick
+		long startTick,
+		List<RecordedKey> keys
 	) {
+	}
+
+	/**
+	 * One keyframe applied to a recorded effect after it started.
+	 */
+	private record RecordedKey(String param, float time, float value, String easing) {
 	}
 
 	/**
@@ -120,7 +132,31 @@ public final class VFXServerEffects {
 				it.remove();
 			}
 		}
-		effects.put(effectId, new ActiveEffect(effectId, durationTicks, instanceId, worldPos, List.copyOf(entityUuids), Map.copyOf(params), easing, player.level().getServer().getTickCount()));
+		effects.put(effectId, new ActiveEffect(effectId, durationTicks, instanceId, worldPos, List.copyOf(entityUuids), Map.copyOf(params), easing, player.level().getServer().getTickCount(), List.of()));
+	}
+
+	/**
+	 * Records a keyframe applied to an already-recorded effect play (mirrors
+	 * {@code VFXAPI.sendKeyframe}). Replaces any key of the same parameter at the same time.
+	 * Ignored when the effect has no recorded play for this player.
+	 */
+	public void recordKeyframe(final ServerPlayer player, final Identifier effectId, final String param, final float time, final float value, final String easing) {
+		if (flashbackIsReplaying()) {
+			return;
+		}
+		Map<Identifier, ActiveEffect> effects = this.byPlayer.get(player.getUUID());
+		ActiveEffect active = effects == null ? null : effects.get(effectId);
+		if (active == null) {
+			return;
+		}
+		List<RecordedKey> keys = new ArrayList<>(active.keys());
+		keys.removeIf(key -> key.param().equals(param) && Float.compare(key.time(), time) == 0);
+		if (keys.size() >= MAX_KEYS_PER_EFFECT) {
+			// Oldest key evicted first so key spam cannot grow the entry unbounded.
+			keys.remove(0);
+		}
+		keys.add(new RecordedKey(param, time, value, easing));
+		effects.put(effectId, new ActiveEffect(active.effectId(), active.durationTicks(), active.instanceId(), active.worldPos(), active.entityUuids(), active.params(), active.easing(), active.startTick(), List.copyOf(keys)));
 	}
 
 	/**
@@ -155,9 +191,10 @@ public final class VFXServerEffects {
 	}
 
 	/**
-	 * Re-sends the still-active effects to a (re)joining player, each with its remaining duration.
-	 * Called after the datapack definitions have been synced so the client can resolve the ids.
-	 * Expired entries are pruned on the way.
+	 * Re-sends the still-active effects to a (re)joining player. Each play carries the elapsed
+	 * offset so the client resumes mid-animation, followed by the recorded keyframes so runtime
+	 * edits survive the reconnect. Called after the datapack definitions have been synced so the
+	 * client can resolve the ids. Expired entries are pruned on the way.
 	 */
 	public void applyTo(final ServerPlayer player) {
 		if (flashbackIsReplaying()) {
@@ -176,9 +213,15 @@ public final class VFXServerEffects {
 				it.remove();
 				continue;
 			}
+			int elapsed = active.durationTicks() < 0 ? 0 : Math.max(0, (int) Math.min(Integer.MAX_VALUE, now - active.startTick()));
 			ServerPlayNetworking.send(player, VFXTriggerPayload.play(
-				active.effectId(), remaining, active.instanceId(), active.worldPos(), active.entityUuids(), active.params(), active.easing()
+				active.effectId(), remaining, elapsed, active.instanceId(), active.worldPos(), active.entityUuids(), active.params(), active.easing()
 			));
+			for (RecordedKey key : active.keys()) {
+				ServerPlayNetworking.send(player, VFXTriggerPayload.keyframe(
+					active.effectId(), key.param(), (int) key.time(), key.value(), key.easing()
+				));
+			}
 		}
 		if (effects.isEmpty()) {
 			this.byPlayer.remove(player.getUUID());
@@ -187,17 +230,22 @@ public final class VFXServerEffects {
 
 	/**
 	 * The number of ticks the effect still has left, or {@code -1} when it has expired. Persistent
-	 * effects (negative duration) never expire.
+	 * effects (negative duration) never expire. Keyframes past the nominal duration extend the
+	 * effective lifetime up to the last key.
 	 */
 	private static int remainingTicks(final ActiveEffect active, final long now) {
 		if (active.durationTicks() < 0) {
 			return active.durationTicks();
 		}
+		float effectiveDuration = active.durationTicks();
+		for (RecordedKey key : active.keys()) {
+			effectiveDuration = Math.max(effectiveDuration, key.time());
+		}
 		long elapsed = Math.max(0L, now - active.startTick());
-		long remaining = active.durationTicks() - elapsed;
+		long remaining = (long) effectiveDuration - elapsed;
 		if (remaining <= 0L) {
 			return -1;
 		}
-		return (int) remaining;
+		return (int) Math.min(remaining, Integer.MAX_VALUE);
 	}
 }

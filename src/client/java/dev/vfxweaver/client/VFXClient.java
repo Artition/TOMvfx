@@ -77,7 +77,7 @@ public class VFXClient implements ClientModInitializer {
 					LOGGER.warn("VFX keyframe: effect '{}' is not running", payload.effectId());
 				}
 			} else {
-				VFXEffectManager.get().play(payload.effectId(), payload.durationTicks(), payload.instanceId(), payload.position(), payload.entityUuids(), payload.params(), EasingFunction.fromString(payload.easing()));
+				VFXEffectManager.get().play(payload.effectId(), payload.durationTicks(), payload.elapsedTicks(), payload.instanceId(), payload.position(), payload.entityUuids(), payload.params(), EasingFunction.fromString(payload.easing()));
 			}
 		});
 	}

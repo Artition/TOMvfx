@@ -18,23 +18,26 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Server-to-client packet that triggers, stops or live-edits a VFX effect. Carries a protocol
- * version, the effect id, the action, the duration in ticks, an optional explicit world position,
- * an optional instance id (to target one of several concurrent instances of the same effect),
- * the (already resolved) parameter map, the easing curve name (built-in or custom datapack curve)
- * and the list of entity UUIDs this effect applies to (for entity tint/outline effects).
+ * version, the effect id, the action, the duration in ticks, an optional resume offset in ticks
+ * (how far into the timeline the effect already is вЂ” used when re-applying effects after a
+ * reconnect), an optional explicit world position, an optional instance id (to target one of
+ * several concurrent instances of the same effect), the (already resolved) parameter map, the
+ * easing curve name (built-in or custom datapack curve) and the list of entity UUIDs this effect
+ * applies to (for entity tint/outline effects).
  */
 public record VFXTriggerPayload(
 	byte protocolVersion,
 	Identifier effectId,
 	VFXAction action,
 	int durationTicks,
+	int elapsedTicks,
 	long instanceId,
 	@Nullable Vec3 position,
 	List<UUID> entityUuids,
 	Map<String, Float> params,
 	String easing
 ) implements CustomPacketPayload {
-	public static final byte PROTOCOL_VERSION = 4;
+	public static final byte PROTOCOL_VERSION = 5;
 	/** Safety cap on the number of parameters a play packet may carry (server input, see AGENTS.md). */
 	public static final int MAX_PARAMS = 32;
 	/** Safety cap on the number of entity UUIDs in one packet. */
@@ -74,6 +77,8 @@ public record VFXTriggerPayload(
 		VFXTriggerPayload::action,
 		ByteBufCodecs.VAR_INT,
 		VFXTriggerPayload::durationTicks,
+		ByteBufCodecs.VAR_INT,
+		VFXTriggerPayload::elapsedTicks,
 		ByteBufCodecs.VAR_LONG,
 		VFXTriggerPayload::instanceId,
 		OPTIONAL_VEC3,
@@ -120,7 +125,16 @@ public record VFXTriggerPayload(
 	 * @param easing        easing curve name (built-in or custom datapack curve)
 	 */
 	public static VFXTriggerPayload play(final Identifier effectId, final int durationTicks, final long instanceId, final @Nullable Vec3 position, final List<UUID> entityUuids, final Map<String, Float> params, final String easing) {
-		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.PLAY, durationTicks, instanceId, position, entityUuids, params, easing);
+		return play(effectId, durationTicks, 0, instanceId, position, entityUuids, params, easing);
+	}
+
+	/**
+	 * Creates a play payload that resumes an already-running timeline from the given offset.
+	 *
+	 * @param elapsedTicks how far into the timeline the effect already is, in ticks
+	 */
+	public static VFXTriggerPayload play(final Identifier effectId, final int durationTicks, final int elapsedTicks, final long instanceId, final @Nullable Vec3 position, final List<UUID> entityUuids, final Map<String, Float> params, final String easing) {
+		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.PLAY, durationTicks, Math.max(0, elapsedTicks), instanceId, position, entityUuids, params, easing);
 	}
 
 	/**
@@ -137,7 +151,7 @@ public record VFXTriggerPayload(
 	 * @param instanceId instance id (0 = stop every instance of the effect)
 	 */
 	public static VFXTriggerPayload stop(final Identifier effectId, final long instanceId) {
-		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.STOP, 0, instanceId, null, List.of(), Map.of(), EasingType.LINEAR.name());
+		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.STOP, 0, 0, instanceId, null, List.of(), Map.of(), EasingType.LINEAR.name());
 	}
 
 	/**
@@ -145,7 +159,7 @@ public record VFXTriggerPayload(
 	 * a single {@code name -> value} entry).
 	 */
 	public static VFXTriggerPayload setParam(final Identifier effectId, final String param, final float value) {
-		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.SET_PARAM, 0, 0L, null, List.of(), Map.of(param, value), EasingType.LINEAR.name());
+		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.SET_PARAM, 0, 0, 0L, null, List.of(), Map.of(param, value), EasingType.LINEAR.name());
 	}
 
 	/**
@@ -153,14 +167,14 @@ public record VFXTriggerPayload(
 	 * {@code durationTicks}, the value in {@code params} and the outgoing easing in {@code easing}.
 	 */
 	public static VFXTriggerPayload keyframe(final Identifier effectId, final String param, final int time, final float value, final EasingType easing) {
-		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.KEYFRAME, time, 0L, null, List.of(), Map.of(param, value), easing.name());
+		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.KEYFRAME, time, 0, 0L, null, List.of(), Map.of(param, value), easing.name());
 	}
 
 	/**
 	 * Creates a live keyframe payload with a custom curve name.
 	 */
 	public static VFXTriggerPayload keyframe(final Identifier effectId, final String param, final int time, final float value, final String easing) {
-		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.KEYFRAME, time, 0L, null, List.of(), Map.of(param, value), easing);
+		return new VFXTriggerPayload(PROTOCOL_VERSION, effectId, VFXAction.KEYFRAME, time, 0, 0L, null, List.of(), Map.of(param, value), easing);
 	}
 
 	@Override
