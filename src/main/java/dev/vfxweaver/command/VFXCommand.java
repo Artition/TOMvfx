@@ -262,7 +262,7 @@ Commands.argument("targets", EntityArgument.players())
 			throw ERROR_UNKNOWN_EFFECT.create(effectId.toString());
 		}
 		BlockPos pos = BlockPosArgument.getBlockPos(context, "pos");
-		Vec3 worldPos = pos.getCenter();
+		Vec3 worldPos = Vec3.atCenterOf(pos);
 
 		for (ServerPlayer player : targets) {
 			VFXAPI.sendEffect(player, effectId, worldPos, overrides, null);
