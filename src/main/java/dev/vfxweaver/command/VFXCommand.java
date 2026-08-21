@@ -8,14 +8,8 @@ import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import com.mojang.brigadier.arguments.FloatArgumentType;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.vfxweaver.api.VFXAPI;
-import dev.vfxweaver.effect.EasingType;
-import dev.vfxweaver.effect.VFXCurveManager;
 import dev.vfxweaver.effect.VFXDefinition;
-import dev.vfxweaver.effect.VFXTimeline;
 import dev.vfxweaver.network.VFXTriggerPayload;
 import dev.vfxweaver.resource.VFXDefinitionManager;
 import java.util.ArrayList;
@@ -62,17 +56,6 @@ public final class VFXCommand {
 						.then(
 							Commands.argument("effect", IdentifierArgument.id())
 								.suggests(VFXCommand::suggestEffects)
-								.then(
-									Commands.literal(VFXTimeline.STOP_PARAM)
-										.then(
-											Commands.argument("time", IntegerArgumentType.integer(0))
-												.executes(context2 -> keyframeStop(context2, List.of(requirePlayer(context2))))
-												.then(
-													Commands.argument("targets", EntityArgument.players())
-														.executes(context2 -> keyframeStop(context2, EntityArgument.getPlayers(context2, "targets")))
-												)
-										)
-								)
 								.then(
 									Commands.argument("targets", EntityArgument.players())
 										.executes(context2 -> play(context2, EntityArgument.getPlayers(context2, "targets"), Map.of()))
@@ -168,38 +151,6 @@ public final class VFXCommand {
 										.then(
 											Commands.argument("targets", EntityArgument.players())
 												.executes(context2 -> setParams(context2, EntityArgument.getPlayers(context2, "targets")))
-										)
-								)
-						)
-				)
-				.then(
-					Commands.literal("key")
-						.requires(VFXCommand::requirePermission)
-						.then(
-							Commands.argument("effect", IdentifierArgument.id())
-								.suggests(VFXCommand::suggestEffects)
-								.then(
-									Commands.argument("param", StringArgumentType.word())
-										.suggests(VFXCommand::suggestEffectParams)
-										.then(
-											Commands.argument("time", IntegerArgumentType.integer(0))
-												.then(
-													Commands.argument("value", FloatArgumentType.floatArg())
-														.executes(context2 -> keyframe(context2, EasingType.LINEAR.name(), List.of(requirePlayer(context2))))
-														.then(
-															Commands.argument("easing", StringArgumentType.word())
-																.suggests(VFXCommand::suggestEasings)
-																.executes(context2 -> keyframe(context2, currentEasing(context2), List.of(requirePlayer(context2))))
-																.then(
-																	Commands.argument("targets", EntityArgument.players())
-																		.executes(context2 -> keyframe(context2, currentEasing(context2), EntityArgument.getPlayers(context2, "targets")))
-																)
-														)
-														.then(
-Commands.argument("targets", EntityArgument.players())
-													.executes(context2 -> keyframe(context2, EasingType.LINEAR.name(), EntityArgument.getPlayers(context2, "targets")))
-														)
-												)
 										)
 								)
 						)
@@ -326,46 +277,6 @@ Commands.argument("targets", EntityArgument.players())
 		return targets.size();
 	}
 
-	private static int keyframe(final CommandContext<CommandSourceStack> context, final String easing, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
-		Identifier effectId = IdentifierArgument.getId(context, "effect");
-		String param = StringArgumentType.getString(context, "param");
-		int time = IntegerArgumentType.getInteger(context, "time");
-		float value = FloatArgumentType.getFloat(context, "value");
-		for (ServerPlayer player : targets) {
-			VFXAPI.sendKeyframe(player, effectId, param, time, value, easing);
-		}
-		context.getSource()
-			.sendSuccess(
-				() -> Component.translatable("commands.vfxweaver.key", param, effectId.toString(), time, value, easing, targets.size()),
-				false
-			);
-		return targets.size();
-	}
-
-	/**
-	 * Handles {@code /vfx key <effect> stop <time>}: marks the end of the animation on every
-	 * running instance of the effect for the target players. Travels as a regular keyframe with
-	 * the magic parameter name (see {@link VFXTimeline#STOP_PARAM}), so the server registry
-	 * records it and reconnects resume with the marker intact.
-	 */
-	private static int keyframeStop(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
-		Identifier effectId = IdentifierArgument.getId(context, "effect");
-		int time = IntegerArgumentType.getInteger(context, "time");
-		for (ServerPlayer player : targets) {
-			VFXAPI.sendKeyframe(player, effectId, VFXTimeline.STOP_PARAM, time, 0.0F, EasingType.LINEAR);
-		}
-		context.getSource()
-			.sendSuccess(
-				() -> Component.translatable("commands.vfxweaver.key", VFXTimeline.STOP_PARAM, effectId.toString(), time, 0.0F, EasingType.LINEAR.name(), targets.size()),
-				false
-			);
-		return targets.size();
-	}
-
-	private static String currentEasing(final CommandContext<CommandSourceStack> context) {
-		return StringArgumentType.getString(context, "easing");
-	}
-
 	private static int list(final CommandContext<CommandSourceStack> context) {
 		VFXDefinitionManager definitions = VFXDefinitionManager.get();
 		context.getSource()
@@ -390,35 +301,6 @@ Commands.argument("targets", EntityArgument.players())
 
 	private static CompletableFuture<Suggestions> suggestEffects(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
 		return SharedSuggestionProvider.suggestResource(VFXDefinitionManager.get().getDefinitions().keySet().stream(), builder);
-	}
-
-	private static CompletableFuture<Suggestions> suggestEasings(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
-		java.util.Set<String> names = new java.util.LinkedHashSet<>();
-		for (EasingType type : EasingType.values()) {
-			names.add(type.name().toLowerCase(java.util.Locale.ROOT));
-		}
-		names.addAll(VFXCurveManager.get().getCurves().keySet().stream().map(Identifier::toString).toList());
-		return SharedSuggestionProvider.suggest(names, builder);
-	}
-
-	/**
-	 * Suggests the parameter names of the effect referenced by the already-typed
-	 * {@code effect} argument (definition params, or nothing when the id is unresolved).
-	 */
-	private static CompletableFuture<Suggestions> suggestEffectParams(final CommandContext<CommandSourceStack> context, final SuggestionsBuilder builder) {
-		try {
-			final Identifier effectId = context.getArgument("effect", Identifier.class);
-			final VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
-			if (definition != null) {
-				final List<String> names = new ArrayList<>(definition.getParams().size() + 1);
-				names.add(VFXTimeline.STOP_PARAM);
-				names.addAll(definition.getParams().keySet());
-				return SharedSuggestionProvider.suggest(names, builder);
-			}
-		} catch (IllegalArgumentException ignored) {
-			// effect argument missing or not a valid id yet — nothing to suggest.
-		}
-		return builder.buildFuture();
 	}
 
 	/**

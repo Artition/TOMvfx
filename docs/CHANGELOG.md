@@ -5,12 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). The versions bel
 ## [Unreleased]
 ### Added
 - **`[players]` argument in `/vfx playentity`.** The command now accepts an optional player list at the end (`/vfx playentity <effect> [{params}] <targets> [players]`) — who sees the effect. Previously it was always sent only to the executing player.
-- **Stop marker: `/vfx key <effect> stop <time>`.** An explicit end-of-animation keyframe: when a running instance reaches `time`, it stops itself — fading out over its `fade_ticks`, or instantly without them. Also ends persistent and looping instances, and survives reconnects like regular keyframes (the server records and re-sends it).
 ### Changed
+- **`duration` now ends every non-looping instance.** `/vfx set` on a non-running effect used to start an immortal persistent instance whose animation was stretched over `Integer.MAX_VALUE` ticks (frozen on its first frame); it now starts a normal instance with the definition's own `duration`, so the effect turns off when the duration expires. Definitions explicitly marked `"persistent": true` keep their until-stopped semantics.
 - **BREAKING**: `PROTOCOL_VERSION` 4 → 5: the play packet carries a resume offset (`elapsedTicks`) used when re-applying effects after a reconnect.
+### Removed
+- **The `/vfx key` command.** Nobody used it; runtime keyframing stays available to mods via `VFXAPI.sendKeyframe` and the network `KEYFRAME` action.
 ### Fixed
-- **Effects no longer restart from the first keyframe after a reconnect.** The server now records keyframes added via `/vfx key` and, on rejoin, re-sends the play with the elapsed offset plus the recorded keys, so the animation continues where it left off. Keyframes past the nominal duration also extend the effect's lifetime correctly (previously such effects were dropped early or replayed from scratch).
-- **Non-looping effects whose runtime edits animate to zero remove themselves.** A persistent instance keyed down to zero (`/vfx key ... <time> 0`, or `/vfx set param 0`) used to linger invisibly until the active-effect cap evicted it; it is now removed as soon as every edited parameter rests at zero. Definition-driven and looping effects are unaffected.
+- **Effects no longer restart from the first keyframe after a reconnect.** The server records runtime keyframes and, on rejoin, re-sends the play with the elapsed offset plus the recorded keys, so the animation continues where it left off. Keyframes past the nominal duration also extend the effect's lifetime correctly (previously such effects were dropped early or replayed from scratch).
+- **Non-looping effects whose runtime edits animate to zero remove themselves.** An instance keyed down to zero (or set to `0` via `/vfx set`) used to linger invisibly until the active-effect cap evicted it; it is now removed as soon as every edited parameter rests at zero. Definition-driven and looping effects are unaffected.
 
 ## v1.0.3
 ### Fixed

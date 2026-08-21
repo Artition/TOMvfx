@@ -19,12 +19,6 @@ public class VFXTimeline {
 	/** Safety cap for runtime overrides (network/command input, see AGENTS.md). */
 	private static final int MAX_OVERRIDES = 32;
 
-	/**
-	 * Magic parameter name for the stop marker: {@code /vfx key <effect> stop <time>} ends the
-	 * effect at that time (through its usual fade-out) instead of keying a real parameter.
-	 */
-	public static final String STOP_PARAM = "stop";
-
 	private final float duration;
 	private final Map<String, AnimatedValue> values;
 	private Map<String, BoundParam> bindings;
@@ -32,8 +26,6 @@ public class VFXTimeline {
 	private final Map<String, MathExpression> expressions;
 	private final Map<String, AnimatedValue> overrides = new LinkedHashMap<>();
 	private float elapsed;
-	/** Time at which the instance stops itself; no auto-stop while maxed out. */
-	private float stopTime = Float.MAX_VALUE;
 
 	/**
 	 * Creates a timeline with the given duration and value set.
@@ -138,18 +130,10 @@ public class VFXTimeline {
 	}
 
 	/**
-	 * True when the elapsed time reached or exceeded the timeline duration, or the stop marker
-	 * set via {@code /vfx key <effect> stop <time>}.
+	 * True when the elapsed time reached or exceeded the timeline duration.
 	 */
 	public boolean isFinished() {
-		return this.elapsed >= this.duration || this.stopReached(this.elapsed);
-	}
-
-	/**
-	 * True when the stop marker time has been reached (no-op when no marker was set).
-	 */
-	public boolean stopReached(final float elapsed) {
-		return elapsed >= this.stopTime;
+		return this.elapsed >= this.duration;
 	}
 
 	/**
@@ -265,10 +249,6 @@ public class VFXTimeline {
 	 * @param easing  easing curve towards the next keyframe
 	 */
 	public void setKeyframe(final String name, final float time, final float value, final EasingFunction easing) {
-		if (STOP_PARAM.equals(name)) {
-			this.stopTime = Math.max(0.0F, time);
-			return;
-		}
 		AnimatedValue base = this.overrides.get(name);
 		if (base == null) {
 			base = this.values.get(name);

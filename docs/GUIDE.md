@@ -7,7 +7,7 @@ A client-side VFX library for Minecraft 26.1–26.1.2 (Fabric). Screen post-proc
 
 Files: `data/<namespace>/vfx/<name>.json` and `data/<namespace>/vfx_curves/<name>.json`. After edits — `/reload`. The effect id = `<namespace>:<name>`. On a dedicated server, definitions and curves are automatically synced to clients on player join and after `/reload`, so custom (datapack) effects work for all players, not just on the server.
 
-The mutating commands `/vfx play`, `/vfx playat`, `/vfx playentity`, `/vfx stop`, `/vfx set`, `/vfx key` require operator rights (gamemaster level); `/vfx list` is open to everyone.
+The mutating commands `/vfx play`, `/vfx playat`, `/vfx playentity`, `/vfx stop`, `/vfx set` require operator rights (gamemaster level); `/vfx list` is open to everyone.
 
 ---
 
@@ -34,9 +34,7 @@ The mutating commands `/vfx play`, `/vfx playat`, `/vfx playentity`, `/vfx stop`
 | `/vfx playat <effect> <x> <y> <z> [{[...]}] [players]` | Play an effect anchored to world coordinates: the client re-anchors spatial bindings (`screen_x/y`, `proximity`) to that point and uses it for the effect's positions (for `block_tint`/`block_outline`). The optional param-map — overrides, like `play`. |
 | `/vfx playentity <effect> [{[...]}] <targets> [players]` | Play an effect on selected entities (selector, e.g. `@e[type=!player,distance=..10]`). Targets are passed by UUID (up to 16) and apply to `entity_tint`/`entity_outline`. The optional param-map — overrides. The optional `[players]` — who sees the effect; default — the executing player. |
 | `/vfx stop <effect> [players]` | Stop the effect (all its instances). Effects with `fade_ticks > 0` fade out smoothly. |
-| `/vfx set <effect> {[param:value],...} [players]` | Live override of params of a **running** effect, without restarting the timeline. If the effect is not running — a persistent instance is started with those values. Tab walks the syntax: `{` → `[` → param name → `:` value → `]` → `,` (new pair) or `}`. |
-| `/vfx key <effect> <param> <time> <value> [easing] [players]` | Add/replace a keyframe of a param of a running effect (time — ticks from start, easing — curve to the next keyframe, Tab autocomplete including custom datapack curve names). |
-| `/vfx key <effect> stop <time> [players]` | Mark the end of the animation: when a running instance reaches `time`, it stops itself (fading out over its `fade_ticks`, or instantly without them). Works on persistent and looping instances too; survives reconnects like regular keyframes. |
+| `/vfx set <effect> {[param:value],...} [players]` | Live override of params of a **running** effect, without restarting the timeline. If the effect is not running — a new instance is started with those values and the definition's own `duration` (it ends on schedule like a normal play). Tab walks the syntax: `{` → `[` → param name → `:` value → `]` → `,` (new pair) or `}`. |
 | `/vfx list` | List all loaded definitions (built-ins + datapack). |
 
 On `/vfx stop` the effect is removed instantly if `fade_ticks` is not set or is 0; otherwise — a smooth fade to neutral values.
@@ -433,10 +431,11 @@ Versioned feature history — **[docs/CHANGELOG.md](CHANGELOG.md)**.
 Guide version: 18 — see changelog below.
 
 ### v18
-- Effects survive a reconnect correctly: the server remembers `/vfx key` keyframes and resumes playback from the position it was left at (protocol version 5).
-- Non-looping effects whose runtime edits (`/vfx key`, `/vfx set`) animate to zero remove themselves instead of lingering invisibly.
-- `/vfx key <effect> stop <time>` — an explicit end-of-animation marker on a running effect (fades out and removes itself at that tick; also ends looping instances).
+- Effects survive a reconnect correctly: the server remembers runtime keyframes (Java API `sendKeyframe`) and resumes playback from the position it was left at (protocol version 5).
+- Non-looping effects whose runtime edits animate to zero remove themselves instead of lingering invisibly.
+- `/vfx set` on a non-running effect starts a normal instance with the definition's own `duration` instead of an immortal one.
 - `/vfx playentity` accepts an optional `[players]` list — who sees the effect (default: the executing player).
+- Removed the `/vfx key` command (nobody used it; `VFXAPI.sendKeyframe` and the network `KEYFRAME` action remain for mods).
 
 ### v17
 - Flashback compatibility: client-local effects are recorded into Flashback replays and re-triggered during playback (soft dependency, reflection-based, no compile-time coupling).

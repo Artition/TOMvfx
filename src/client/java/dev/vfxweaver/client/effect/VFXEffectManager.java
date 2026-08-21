@@ -363,17 +363,21 @@ public class VFXEffectManager {
 			}
 		}
 		if (!applied) {
-			if (VFXDefinitionManager.get().get(effectId) == null) {
+			VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
+			if (definition == null) {
 				return false;
 			}
-			this.play(effectId, -1, Map.of(name, value), null);
+			// No running instance: start one with the definition's own duration so it ends on
+			// schedule like any normal play (a -1 here used to create an immortal instance
+			// whose animation was stretched over Integer.MAX_VALUE ticks — frozen on frame one).
+			this.play(effectId, definition.getDefaultDuration(), Map.of(name, value), null);
 		}
 		return true;
 	}
 
 	/**
 	 * Adds or replaces a keyframe of a parameter on every running instance of the effect
-	 * (used by {@code /vfx key}).
+	 * (used by {@code VFXAPI.sendKeyframe}).
 	 *
 	 * @return {@code true} when at least one running instance was found and updated
 	 */
