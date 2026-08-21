@@ -1,0 +1,48 @@
+# AGENTS.md
+
+Instructions for AI agents (Claude, Copilot, etc.) working in this repository.
+
+## What this project is
+
+A Fabric mod for Minecraft ~26.1 (a client-side VFX library). Java sources are split by side:
+
+```
+src/main/java/com/tom/vfx/        — shared code (server + client): API, commands, datapack effects, network
+src/client/java/com/tom/vfx/client/ — client only: rendering, post-processing, shaders, camera shake
+src/main/resources/               — fabric.mod.json, mixins, lang, assets (shared)
+src/client/resources/             — client mixins, shaders (assets/tompfx/shaders)
+```
+
+A full description of the domain model (effects, timelines, datapacks, network protocol) is in `docs/GUIDE.md`.
+
+## Build and verify
+
+```bash
+./gradlew build          # compile + jar into build/libs/
+./gradlew runClient      # test client
+./gradlew runServer      # test server
+```
+
+Requires JDK 25 in `JAVA_HOME` (the project compiles with `--release 25`, see `build.gradle`). If the build fails with `error: release version 25 not supported` — Gradle picked up the wrong JDK, not a code bug.
+
+After any change under `src/`, always run `./gradlew build` before committing — an agent's task is not done until the build passes.
+
+## Code style
+
+- Indentation is tabs, not spaces.
+- Method parameters and local variables that are not reassigned should be marked `final` (see any class in `effect/` or `client/`).
+- Public classes and non-trivial public methods should have Javadoc (description + `@param`/`@return` where not obvious from the signature).
+- Stateless utility classes should be `final class` with a private constructor (see `SimplexNoise`, `VFXShaderPrograms`, `VFXWorldBindings`).
+- Singletons (managers) use a private constructor + static `get()` (see `VFXEffectManager`, `VFXDefinitionManager`, `VFXPostProcessingManager`).
+- Any collection that grows from external/network/datapack input must be bounded by a constant (see `MAX_ACTIVE_EFFECTS`, `MAX_SCHEDULED_EFFECTS`, `MAX_COLLECTION_DEPTH` in `VFXEffectManager`) — do not add new unbounded lists/maps without an explicit limit.
+- Datapack parsing (`VFXDefinition.parse`, `VFXDefinitionManager.prepare`): any new exception thrown while parsing a single file must be caught inside `prepare()`, otherwise one broken JSON file will take down loading of all effects (we hit this before — see git log).
+
+## What must not be broken without discussion
+
+- The datapack JSON effect format (`data/<namespace>/vfx/<effect>.json`) and the network protocol `tompfx:vfx_trigger` — backward compatibility matters; the protocol version (`VFXTriggerPayload.PROTOCOL_VERSION`) must be bumped on any breaking change.
+- The public Java API (`VFXAPI`) — used by other mods.
+
+## Documentation
+
+- User guide (commands, effect types, datapacks, Java API) — `docs/GUIDE.md`. When effect/command/API behavior changes, update its changelog at the bottom of the file (see the existing `**vN**: ...` format).
+- Commit and branch conventions — `CONTRIBUTING.md`.
