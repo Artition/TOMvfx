@@ -140,6 +140,38 @@ public final class MathExpression {
 		}
 	}
 
+	/**
+	 * A variable resolved from the current local player state ({@code health}, {@code hunger},
+	 * {@code speed}, {@code light_level}, {@code time_of_day}, {@code player_x/y/z}). Returns
+	 * {@code NaN} when no player state is available (e.g. dedicated server).
+	 */
+	private static final class PlayerVarNode implements Node {
+		final String name;
+
+		PlayerVarNode(final String name) {
+			this.name = name;
+		}
+
+		@Override
+		public float eval(final Ctx ctx) {
+			VFXWorldBindings.PlayerState state = VFXWorldBindings.playerState();
+			if (state == null) {
+				return Float.NaN;
+			}
+			return switch (this.name) {
+				case "health" -> state.health();
+				case "hunger" -> state.hunger();
+				case "speed" -> state.speed();
+				case "light_level" -> state.light();
+				case "time_of_day" -> state.timeOfDay();
+				case "player_x" -> state.px();
+				case "player_y" -> state.py();
+				case "player_z" -> state.pz();
+				default -> Float.NaN;
+			};
+		}
+	}
+
 	private static final class BinaryNode implements Node {
 		final char op;
 		final Node left;
@@ -338,6 +370,7 @@ public final class MathExpression {
 				case "x" -> new VarNode('x');
 				case "y" -> new VarNode('y');
 				case "z" -> new VarNode('z');
+				case "health", "hunger", "speed", "light_level", "time_of_day", "player_x", "player_y", "player_z" -> new PlayerVarNode(name);
 				default -> throw new IllegalArgumentException("Unknown variable or constant: " + name);
 			};
 		}

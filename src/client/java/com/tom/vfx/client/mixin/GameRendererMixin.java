@@ -59,7 +59,10 @@ public abstract class GameRendererMixin {
 				player.getFoodData().getFoodLevel() / 20.0F,
 				speed,
 				Math.max(blockLight, skyLight) / 15.0F,
-				(playerLevel.getOverworldClockTime() % 24000L) / 24000.0F
+				(playerLevel.getOverworldClockTime() % 24000L) / 24000.0F,
+				(float) player.getX(),
+				(float) player.getY(),
+				(float) player.getZ()
 			);
 		}
 		manager.advance(deltaTicks);

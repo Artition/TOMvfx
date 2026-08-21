@@ -23,13 +23,16 @@ public final class VFXWorldBindings {
 	/**
 	 * Snapshot of the local player's state for one frame (player-state bindings).
 	 *
-	 * @param health     health fraction 0..1
-	 * @param hunger     hunger fraction 0..1
-	 * @param speed      horizontal speed in blocks per second
-	 * @param light      light level 0..1 at the player's position
-	 * @param timeOfDay  day-cycle fraction 0..1
+	 * @param health    health fraction 0..1
+	 * @param hunger    hunger fraction 0..1
+	 * @param speed     horizontal speed in blocks per second
+	 * @param light     light level 0..1 at the player's position
+	 * @param timeOfDay day-cycle fraction 0..1
+	 * @param px        player world X
+	 * @param py        player world Y
+	 * @param pz        player world Z
 	 */
-	public record PlayerState(float health, float hunger, float speed, float light, float timeOfDay) {
+	public record PlayerState(float health, float hunger, float speed, float light, float timeOfDay, float px, float py, float pz) {
 	}
 
 	private VFXWorldBindings() {
@@ -76,8 +79,8 @@ public final class VFXWorldBindings {
 	/**
 	 * Publishes the local player state for the current frame (client only).
 	 */
-	public static void updatePlayerState(final float health, final float hunger, final float speed, final float light, final float timeOfDay) {
-		playerState = new PlayerState(health, hunger, speed, light, timeOfDay);
+	public static void updatePlayerState(final float health, final float hunger, final float speed, final float light, final float timeOfDay, final float px, final float py, final float pz) {
+		playerState = new PlayerState(health, hunger, speed, light, timeOfDay, px, py, pz);
 	}
 
 	/**
@@ -105,11 +108,37 @@ public final class VFXWorldBindings {
 			return fallback;
 		}
 		return switch (binding.kind()) {
-			case SCREEN_X, SCREEN_Y, PROXIMITY, LOOK -> evaluateSpatial(binding, current, fallback);
+			case SCREEN_X, SCREEN_Y, PROXIMITY, LOOK, DISTANCE -> evaluateSpatial(binding, current, fallback);
 			case CAMERA_YAW_DELTA -> smoothedYawDelta * binding.scale();
 			case CAMERA_PITCH_DELTA -> smoothedPitchDelta * binding.scale();
-			case HEALTH, HUNGER, SPEED, LIGHT_LEVEL, TIME_OF_DAY -> evaluatePlayer(binding, fallback);
+			case LOOK_X, LOOK_Y, LOOK_Z -> evaluateLookDirection(binding, current, fallback);
+			case HEALTH, HUNGER, SPEED, LIGHT_LEVEL, TIME_OF_DAY, PLAYER_X, PLAYER_Y, PLAYER_Z -> evaluatePlayer(binding, fallback);
 		};
+	}
+
+	/**
+	 * Returns a component of the camera's forward (look) direction unit vector.
+	 */
+	private static float evaluateLookDirection(final BoundParam binding, final Frame current, final float fallback) {
+		float yawRad = (float) Math.toRadians(current.yaw());
+		float pitchRad = (float) Math.toRadians(current.pitch());
+		float x = forwardX(yawRad, pitchRad);
+		float y = forwardY(yawRad, pitchRad);
+		float z = forwardZ(yawRad, pitchRad);
+		float value = switch (binding.kind()) {
+			case LOOK_X -> x;
+			case LOOK_Y -> y;
+			case LOOK_Z -> z;
+			default -> fallback;
+		};
+		return value * binding.scale();
+	}
+
+	/**
+	 * Returns the current local player state, or {@code null} when none is available.
+	 */
+	public static @Nullable PlayerState playerState() {
+		return playerState;
 	}
 
 	/**
@@ -136,6 +165,9 @@ public final class VFXWorldBindings {
 			case SPEED -> Math.min(state.speed() / Math.max(binding.range(), 1.0e-4F), 1.0F);
 			case LIGHT_LEVEL -> state.light();
 			case TIME_OF_DAY -> state.timeOfDay();
+			case PLAYER_X -> state.px();
+			case PLAYER_Y -> state.py();
+			case PLAYER_Z -> state.pz();
 			default -> fallback;
 		};
 		if (binding.invert()) {
@@ -173,6 +205,10 @@ public final class VFXWorldBindings {
 				float angle = (float) Math.toDegrees(Math.acos(Math.max(-1.0F, Math.min(1.0F, dot))));
 				float t = Math.min(angle / Math.max(binding.range(), 1.0e-4F), 1.0F);
 				yield (binding.invert() ? t : 1.0F - t) * binding.scale();
+			}
+			case DISTANCE -> {
+				float distance = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+				yield distance * binding.scale();
 			}
 			default -> fallback;
 		};

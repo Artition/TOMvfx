@@ -36,6 +36,20 @@ public record BoundParam(Kind kind, double x, double y, double z, float yaw, flo
 		PROXIMITY("proximity"),
 		/** 1 when the camera looks exactly at the given yaw/pitch, 0 when the angle difference reaches {@code range} degrees. */
 		LOOK("look"),
+		/** Raw Euclidean distance from the camera to the anchor, in blocks (not the 0..1 falloff of {@link #PROXIMITY}). */
+		DISTANCE("distance"),
+		/** X component of the camera's forward (look) direction. */
+		LOOK_X("look_x"),
+		/** Y component of the camera's forward (look) direction. */
+		LOOK_Y("look_y"),
+		/** Z component of the camera's forward (look) direction. */
+		LOOK_Z("look_z"),
+		/** The local player's world X position. */
+		PLAYER_X("player_x"),
+		/** The local player's world Y position. */
+		PLAYER_Y("player_y"),
+		/** The local player's world Z position. */
+		PLAYER_Z("player_z"),
 		/** Camera yaw delta in degrees per tick (positive = turned right). */
 		CAMERA_YAW_DELTA("camera_yaw_delta"),
 		/** Camera pitch delta in degrees per tick (positive = turned up). */
@@ -55,7 +69,7 @@ public record BoundParam(Kind kind, double x, double y, double z, float yaw, flo
 		 * True when this kind needs a world {@code pos} anchor.
 		 */
 		public boolean needsPos() {
-			return this == SCREEN_X || this == SCREEN_Y || this == PROXIMITY;
+			return this == SCREEN_X || this == SCREEN_Y || this == PROXIMITY || this == DISTANCE;
 		}
 
 		private final String id;

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 ### Added
+- **Новые привязки и переменные игрока.** Привязки: `distance` (сырое расстояние от камеры до `pos` в блоках), `look_x/look_y/look_z` (компоненты вектора взгляда камеры), `player_x/player_y/player_z` (позиция локального игрока). В математических выражениях (`expr`) доступны переменные игрока: `health`, `hunger`, `speed`, `light_level`, `time_of_day`, `player_x/y/z`. Примеры в датапаке: `test_expr_health` (screen_flash, `expr: 1.0 - health`), `test_distance` (vignette по `bind: distance`).
+### Added
 - **Обратная связь при битых датапаках.** `/vfx list` теперь выводит список датапак-файлов, которые не распарсились на последнем `/reload`, вместе с текстом ошибки — раньше они молча скипались (только в лог). `VFXDefinitionManager` хранит `parseErrors` (id → сообщение).
 ### Added
 - **`entity_selector` в определении эффекта.** Поле `entity_selector` (строка-селектор, напр. `"@e[type=minecraft:zombie,distance=..10]"`) позволяет entity-эффекту (`entity_tint`/`entity_outline`) самому находить цели: сервер резолвит селектор в UUID при каждом запуске, так что достаточно `/vfx play <эффект>` без `playentity`. Пример в датапаке — `test_zombie_outline`.
