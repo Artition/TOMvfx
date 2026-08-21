@@ -136,4 +136,4 @@ The network layer (`vfxweaver:vfx_trigger`) is protocol-versioned; the client si
 
 Commands, effect params, datapack format, bindings — the full usage guide is in the project repo. Build it yourself with `./gradlew build` (requires JDK 25), or grab a release jar from the Releases tab.
 
-- Repo: https://github.com/Artition/TOMvfx
+- Repo: https://github.com/Artition/VFX-Weaver

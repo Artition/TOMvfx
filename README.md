@@ -15,7 +15,7 @@ A client-side VFX library/API for Minecraft on Fabric: screen post-processing (c
 ## Quick start
 
 ```bash
-git clone https://github.com/Artition/TOMvfx.git
+git clone https://github.com/Artition/VFX-Weaver.git
 cd TOMvfx
 ./gradlew build
 ```
