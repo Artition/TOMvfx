@@ -2,6 +2,7 @@ package dev.vfxweaver.client;
 
 import dev.vfxweaver.api.VFXLocalDispatcher;
 import dev.vfxweaver.client.effect.VFXEffectManager;
+import dev.vfxweaver.client.flashback.FlashbackCompat;
 import dev.vfxweaver.effect.EasingFunction;
 import dev.vfxweaver.effect.EasingType;
 import java.util.Map;
@@ -17,7 +18,10 @@ public class VFXClientAPI implements VFXLocalDispatcher {
 	@Override
 	public long playEffect(final Identifier effectId, final int durationTicks, final Map<String, Float> params, final EasingType easing) {
 		long instanceId = VFXEffectManager.get().allocateInstanceId();
-		Minecraft.getInstance().execute(() -> VFXEffectManager.get().play(effectId, durationTicks, instanceId, null, params, EasingFunction.builtIn(easing)));
+		Minecraft.getInstance().execute(() -> {
+			VFXEffectManager.get().play(effectId, durationTicks, instanceId, null, params, EasingFunction.builtIn(easing));
+			FlashbackCompat.recordPlay(effectId, durationTicks, params, easing);
+		});
 		return instanceId;
 	}
 

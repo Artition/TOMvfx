@@ -10,6 +10,7 @@ A client-side VFX library/API for Minecraft on Fabric: screen post-processing (c
 | Fabric Loader | >=0.19.3 |
 | Fabric API | required |
 | Java | 25+ (JDK 25, see below) |
+| Flashback | optional (records client-local effects into replays) |
 
 ## Quick start
 
@@ -36,6 +37,7 @@ Run a test client/server directly from the project:
 - **Entity effects** — `entity_tint` and `entity_outline` applied to entities by UUID (second-pass model render, texture-aware).
 - **Datapack-defined effects** — declarative JSON (`data/<namespace>/vfx/<effect>.json`), animated params, keyframes, world/camera/player bindings, math expressions, collections, sounds.
 - **Network triggers** — server→client `vfxweaver:vfx_trigger`, datapack sync over `vfxweaver:vfx_sync`.
+- **Flashback compatibility** — client-local effects are recorded into [Flashback](https://modrinth.com/mod/flashback) replays (soft dependency, optional).
 - **Public Java API** — `VFXAPI` for other mods.
 
 ## Usage

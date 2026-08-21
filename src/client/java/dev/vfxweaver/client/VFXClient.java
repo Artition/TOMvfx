@@ -2,6 +2,7 @@ package dev.vfxweaver.client;
 
 import dev.vfxweaver.api.VFXAPI;
 import dev.vfxweaver.client.effect.VFXEffectManager;
+import dev.vfxweaver.client.flashback.FlashbackCompat;
 import dev.vfxweaver.client.postprocessing.VFXShaderPrograms;
 import dev.vfxweaver.client.render.VFXEntityEffectRenderer;
 import dev.vfxweaver.client.render.VFXWorldOverlayRenderer;
@@ -31,6 +32,7 @@ public class VFXClient implements ClientModInitializer {
 		VFXWorldOverlayRenderer.register();
 		VFXEntityEffectRenderer.register();
 		VFXAPI.setLocalDispatcher(new VFXClientAPI());
+		FlashbackCompat.init();
 		ClientPlayNetworking.registerGlobalReceiver(VFXTriggerPayload.TYPE, this::handleTrigger);
 		ClientPlayNetworking.registerGlobalReceiver(VFXSyncPayload.TYPE, this::handleSync);
 		LOGGER.info("VFX Weaver client initialized");

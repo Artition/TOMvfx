@@ -392,6 +392,16 @@ Full reference (all `VFXAPI` methods, `VFXLocalDispatcher`, the `vfxweaver:vfx_t
 
 ---
 
+## 7.5 Flashback compatibility
+
+[Flashback](https://modrinth.com/mod/flashback) is an optional companion (a soft dependency — the mod works fine without it). When Flashback is installed, **client-local effects** (started on the client, e.g. via `VFXAPI.playEffect` or other mods calling it) are automatically written into the replay as custom Flashback actions, so they appear in the replay at the exact tick they were played. Server-triggered effects travel as `vfxweaver:vfx_trigger` packets, which Flashback captures and replays on its own.
+
+Things to know:
+
+- Effects played with a **negative (persistent) duration** are not recorded — without a recorded stop event they would loop forever during playback.
+- The recording requires no config: start a Flashback recording, play effects, done.
+- No interaction with the Flashback editor keyframes; this is replay recording/playback only.
+
 ## 8. How it renders (for debugging)
 
 Post-processing pipeline, world overlays, effect clock, load limits and fault tolerance — **[docs/ARCHITECTURE.md](ARCHITECTURE.md)**.
@@ -402,7 +412,10 @@ Post-processing pipeline, world overlays, effect clock, load limits and fault to
 
 Versioned feature history — **[docs/CHANGELOG.md](CHANGELOG.md)**.
 
-Guide version: 16 — see changelog below.
+Guide version: 17 — see changelog below.
+
+### v17
+- Flashback compatibility: client-local effects are recorded into Flashback replays and re-triggered during playback (soft dependency, reflection-based, no compile-time coupling).
 
 ### v16
 - New effect types for entities: `entity_tint` (a solid translucent fill of the effect colour) and `entity_outline` (an "inverted hull" silhouette outline, thickness `width`). Targets are set by UUID.
