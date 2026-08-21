@@ -2,17 +2,35 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/). The versions below are guide/feature-set versions of the mod (as they progressed historically, see `docs/GUIDE.md`), plus git release tags where applicable (`v1.0.x`, `gradle.properties` → `mod_version`). Add new entries at the top, in the same PR as the behavior change.
 
-## [Unreleased]
+## v1.0.4
+
 ### Added
-- **`[players]` argument in `/vfx playentity`.** The command now accepts an optional player list at the end (`/vfx playentity <effect> [{params}] <targets> [players]`) — who sees the effect. Previously it was always sent only to the executing player.
+
+- **`[players]` argument in `/vfx playentity`.** The command now accepts an optional player list at the end — who sees the effect. Previously an entity effect was always sent only to the player who ran the command, so there was no way to show it to someone else (e.g. to all players in cutscene maps).
+
+  ```
+  /vfx playentity <effect> [{params}] <targets> [players]
+  ```
+
+  Examples:
+  - `/vfx playentity vfxweaver:entity_outline @e[type=!player,distance=..10] @a` — everyone sees the outlines;
+  - `/vfx playentity vfxweaver:entity_tint @e[tag=boss] Alice Bob` — only Alice and Bob see the tint.
+
+  Without `[players]` behaviour is unchanged (the executing player sees it). Each viewer gets their own copy of the effect, so it also survives their reconnects independently.
+
 ### Changed
-- **`duration` now ends every non-looping instance.** `/vfx set` on a non-running effect used to start an immortal persistent instance whose animation was stretched over `Integer.MAX_VALUE` ticks (frozen on its first frame); it now starts a normal instance with the definition's own `duration`, so the effect turns off when the duration expires. Definitions explicitly marked `"persistent": true` keep their until-stopped semantics.
-- **BREAKING**: `PROTOCOL_VERSION` 4 → 5: the play packet carries a resume offset (`elapsedTicks`) used when re-applying effects after a reconnect.
+
+- **`duration` now ends every non-looping instance.** The one path that ignored it was `/vfx set` on a *not-running* effect: it used to start an immortal persistent instance whose animation was stretched over `Integer.MAX_VALUE` ticks — visually frozen on its first frame, never removed on its own, and replayed from scratch after every reconnect. Such instances now start with the definition's own `duration` and end on schedule like a normal play. Definitions explicitly marked `"persistent": true` keep their until-stopped semantics.
+- **Protocol version 4 → 5** (`vfxweaver:vfx_trigger`). The play packet now carries a resume offset used when re-applying effects after a reconnect (see Fixed). A 1.0.4 client ignores packets from older servers and vice versa — update both sides together.
+
 ### Removed
-- **The `/vfx key` command.** Nobody used it; runtime keyframing stays available to mods via `VFXAPI.sendKeyframe` and the network `KEYFRAME` action.
+
+- **The `/vfx key` command.** Nobody used it; runtime keyframing stays available to mods via `VFXAPI.sendKeyframe` and the network `KEYFRAME` action, which are unchanged.
+
 ### Fixed
-- **Effects no longer restart from the first keyframe after a reconnect.** The server records runtime keyframes and, on rejoin, re-sends the play with the elapsed offset plus the recorded keys, so the animation continues where it left off. Keyframes past the nominal duration also extend the effect's lifetime correctly (previously such effects were dropped early or replayed from scratch).
-- **Non-looping effects whose runtime edits animate to zero remove themselves.** An instance keyed down to zero (or set to `0` via `/vfx set`) used to linger invisibly until the active-effect cap evicted it; it is now removed as soon as every edited parameter rests at zero. Definition-driven and looping effects are unaffected.
+
+- **Effects no longer restart from the first keyframe after a reconnect.** The server keeps a per-player memory of running effects; on rejoin it re-sends each still-running one with an elapsed-time offset plus any runtime keyframes, so the animation continues exactly where it left off instead of starting over. Keyframes past the nominal duration also extend the effect's lifetime correctly — previously such effects were either dropped early or replayed from the beginning.
+- **Invisible effects no longer linger until the cap.** A non-looping instance whose runtime edits have all animated down to zero (or been set to `0`) is invisible but used to keep occupying one of the 64 active-effect slots until the oldest-effect eviction kicked in. It is now removed as soon as every edited parameter rests at zero. Definition-driven animations and looping effects are unaffected.
 
 ## v1.0.3
 ### Fixed
