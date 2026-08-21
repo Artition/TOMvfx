@@ -1,80 +1,80 @@
-# Архитектура
+# Architecture
 
-## Контекст и цели
+## Context and goals
 
-tompfx — клиентская VFX-библиотека для Fabric-мода: сервер триггерит эффекты по сети (или другой мод — напрямую через `VFXAPI` на клиенте), клиент их проигрывает и рендерит. Цели: (1) декларативные эффекты через датапак-JSON без перекомпиляции, (2) ограниченная нагрузка на рендер даже при большом числе одновременных эффектов, (3) отказоустойчивость — один битый эффект/датапак-файл не должен ронять остальные.
+tompfx is a client-side VFX library for a Fabric mod: the server triggers effects over the network (or another mod — directly via `VFXAPI` on the client), the client plays and renders them. Goals: (1) declarative effects via datapack JSON without recompiling, (2) bounded render load even with many concurrent effects, (3) fault tolerance — one broken effect/datapack file must not break the rest.
 
-## Основные системы
+## Core systems
 
 ```
                      ┌──────────────────────┐
- датапак JSON  ─────▶│ VFXDefinitionManager │  (common: main + client-как-solo-игрок)
+ datapack JSON  ─────▶│ VFXDefinitionManager │  (common: main + client-as-single-player)
                      └──────────┬───────────┘
-                                │ VFXDefinition (типобезопасная модель)
+                                │ VFXDefinition (type-safe model)
                                 ▼
- /vfx play, VFXAPI ──▶  VFXEffectManager (client)  ──▶ VFXActiveEffect (таймлайн + позиции + fade)
+ /vfx play, VFXAPI ──▶  VFXEffectManager (client)  ──▶ VFXActiveEffect (timeline + positions + fade)
                                 │
               ┌─────────────────┼─────────────────────┬──────────────────┐
               ▼                 ▼                     ▼                  ▼
    VFXPostProcessingManager  VFXWorldOverlayRenderer  CameraShakeManager  VFXEntityEffectRenderer
-   (шейдерные пост-эффекты)  (block_tint/outline)     (тряска камеры,   (entity_tint/outline,
-                                                       FOV)               второй проход модели)
+   (shader post-effects)     (block_tint/outline)     (camera shake,     (entity_tint/outline,
+                                                       FOV)                second model pass)
 ```
 
-- **`VFXDefinitionManager`** (main) — реестр определений: встроенные (`registerBuiltIns()`) + датапак (`data/<ns>/vfx/<name>.json`, перезагружается через `SimplePreparableReloadListener`). Регистрируется и на сервере, и на клиенте (для одиночной игры).
-- **`VFXEffectManager`** (client, синглтон) — единственный источник правды о том, что сейчас проигрывается: список `active` (`List<VFXActiveEffect>`) и `scheduled` (отложенные дочерние эффекты коллекций), общий «эффектный» таймер `clock` в тиках.
-- **`VFXActiveEffect`** — один экземпляр проигрывания: `VFXTimeline` (анимированные параметры + мировые привязки) + fade-in/out вес + список позиций (для мировых оверлеев) + список UUID целей (для entity-эффектов).
-- **`VFXPostProcessingManager`** (client) — прогоняет активные пост-эффекты через ping-pong `TextureTarget`ы каждый кадр.
-- **`VFXWorldOverlayRenderer`** (client) — рисует `block_tint`/`block_outline` поверх geometry блока через `LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN`.
-- **`VFXEntityEffectRenderer`** (client) — регистрирует кастомные пайплайны/рендер-тайпы для `entity_tint`/`entity_outline`; сами отрисовки выполняет миксин `LivingEntityRendererMixin` во втором проходе модели.
-- **`CameraShakeManager`/`CameraMixin`** (client) — суммирует шум всех активных `camera_shake` в оффсет позиции/поворота, применяется миксином к `Camera`.
-- **`VFXWorldBindings`** (main, но данные только на клиенте) — вычисляет `bind`-параметры (`screen_x`, `proximity`, `look`, `camera_yaw_delta`/`pitch_delta` и состояние игрока: `health`/`hunger`/`speed`/`light_level`/`time_of_day`) относительно текущего кадра камеры и снапшота игрока.
+- **`VFXDefinitionManager`** (main) — definition registry: built-ins (`registerBuiltIns()`) + datapack (`data/<ns>/vfx/<name>.json`, reloaded via `SimplePreparableReloadListener`). Registered on both the server and the client (for single-player).
+- **`VFXEffectManager`** (client, singleton) — the single source of truth about what is currently playing: the `active` list (`List<VFXActiveEffect>`) and `scheduled` (deferred collection children), a shared effect `clock` timer in ticks.
+- **`VFXActiveEffect`** — one playing instance: `VFXTimeline` (animated params + world bindings) + fade-in/out weight + a list of positions (for world overlays) + a list of target UUIDs (for entity effects).
+- **`VFXPostProcessingManager`** (client) — runs active post-effects through ping-pong `TextureTarget`s every frame.
+- **`VFXWorldOverlayRenderer`** (client) — draws `block_tint`/`block_outline` over block geometry via `LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN`.
+- **`VFXEntityEffectRenderer`** (client) — registers custom pipelines/render types for `entity_tint`/`entity_outline`; the actual drawing is done by the `LivingEntityRendererMixin` in a second model pass.
+- **`CameraShakeManager`/`CameraMixin`** (client) — sums the noise of all active `camera_shake` effects into a position/rotation offset, applied by a mixin to `Camera`.
+- **`VFXWorldBindings`** (main, but data lives on the client only) — computes `bind` params (`screen_x`, `proximity`, `look`, `distance`, `look_x/y/z`, `player_x/y/z`, `camera_yaw_delta`/`pitch_delta` and player state: `health`/`hunger`/`speed`/`light_level`/`time_of_day`) relative to the current camera frame and the player snapshot.
 
-## Дата-флоу за один кадр
+## Data flow per frame
 
-1. `GameRendererMixin.tompfx$render` (инжект перед `FogRenderer.endFrame`) — вызывается один раз за кадр:
-   - обновляет `VFXWorldBindings` из текущей камеры (позиция, yaw/pitch, view-rotation-projection матрица);
-   - продвигает `VFXEffectManager.clock` на `deltaTicks` (`DeltaTracker.getGameTimeDeltaTicks()`, 0 на паузе);
-   - `VFXEffectManager.update()` — чистит завершённые эффекты, триггерит должные сработать дочерние эффекты коллекций, продвигает таймлайны;
-   - `VFXPostProcessingManager.process(...)` — прогоняет цепочку шейдерных пассов.
-2. `CameraMixin` (инжекты в `Camera.calculateFov`/`update`) — читает уже обновлённый `VFXEffectManager` для FOV-дельты и шейка камеры.
-3. `LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN` — `VFXWorldOverlayRenderer` рисует мировые оверлеи для активных `block_tint`/`block_outline`.
-4. В рендере сущностей `LivingEntityRendererMixin` (инжект сразу после ванильного `submitModel` в `submit`) для каждой живой сущности читает её UUID с render-state (`ITomVFXEntityState`, заполняется в `extractRenderState`) и, если на этот UUID есть активный `entity_tint`/`entity_outline`, повторно вызывает `submitNodeCollector.submitModel` с кастомным рендер-тайпом — второй проход поверх оригинальной модели в том же пространстве трансформаций.
+1. `GameRendererMixin.tompfx$render` (injection before `FogRenderer.endFrame`) — called once per frame:
+   - updates `VFXWorldBindings` from the current camera (position, yaw/pitch, view-rotation-projection matrix);
+   - advances `VFXEffectManager.clock` by `deltaTicks` (`DeltaTracker.getGameTimeDeltaTicks()`, 0 on pause);
+   - `VFXEffectManager.update()` — removes finished effects, fires due collection children, advances timelines;
+   - `VFXPostProcessingManager.process(...)` — runs the chain of shader passes.
+2. `CameraMixin` (injections in `Camera.calculateFov`/`update`) — reads the already-updated `VFXEffectManager` for the FOV delta and camera shake.
+3. `LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN` — `VFXWorldOverlayRenderer` draws world overlays for active `block_tint`/`block_outline`.
+4. In entity rendering, `LivingEntityRendererMixin` (injection right after the vanilla `submitModel` in `submit`) reads the entity's UUID from the render state (`ITomVFXEntityState`, filled in `extractRenderState`) for every living entity and, if there is an active `entity_tint`/`entity_outline` for that UUID, calls `submitNodeCollector.submitModel` again with a custom render type — a second pass over the original model in the same transform space.
 
-## Пост-обработка (пайплайн)
+## Post-processing (pipeline)
 
-Хук — прямо перед `FogRenderer.endFrame()` в `GameRenderer.render`, то есть после мира и ванильного пост-чейна, но до GUI. Каждый активный пост-эффект раскладывается в один или несколько шейдерных пассов (`VFXShaderPrograms.getPrograms(type)`, например `blur` = X+Y). Копия `mainTarget` → `pingPong[0]`, дальше цепочка пассов чередует `pingPong[0]`/`pingPong[1]`, последний пасс пишет обратно в `mainTarget`. Каждый пасс — ortho-проекция + UBO `SamplerInfo` (размеры in/out) + опциональный UBO `Config` (параметры эффекта, смешанные с нейтральным значением по текущему fade-весу — `VFXEffectType.neutralValue`), оба через `MappableRingBuffer` (маппится и ротируется каждый кадр).
+The hook is right before `FogRenderer.endFrame()` in `GameRenderer.render`, i.e. after the world and the vanilla post chain, but before the GUI. Each active post-effect expands into one or more shader passes (`VFXShaderPrograms.getPrograms(type)`, e.g. `blur` = X+Y). A copy of `mainTarget` → `pingPong[0]`, then the pass chain alternates `pingPong[0]`/`pingPong[1]`, the last pass writes back into `mainTarget`. Each pass is an ortho projection + a `SamplerInfo` UBO (in/out sizes) + an optional `Config` UBO (effect params, blended with the neutral value by the current fade weight — `VFXEffectType.neutralValue`), both via `MappableRingBuffer` (mapped and rotated every frame).
 
-## Мировые оверлеи
+## World overlays
 
-`block_tint`/`block_outline` рисуются не шейдерным пассом, а геометрией: запечённые квады модели блока (`ModelManager.getBlockStateModelSet()`, фолбэк — полный куб), трансформированные в `PoseStack` относительно камеры. `block_outline` поддерживает два режима (`shell` параметр): `0` — стенки (каждая грань выдавливается наружу вдоль нормали, физически не может закрыть сам блок), `1` — классическая расширенная оболочка задними гранями с back-face culling, обрезаемая depth-буфером самого блока.
+`block_tint`/`block_outline` are drawn not as a shader pass but as geometry: the block model's baked quads (`ModelManager.getBlockStateModelSet()`, fallback a full cube), transformed in a `PoseStack` relative to the camera. `block_outline` supports two modes (the `shell` param): `0` — walls (each face is extruded outwards along its normal, physically cannot cover the block), `1` — a classic scaled shell with back faces + back-face culling, clipped by the block's own depth buffer.
 
-## Эффекты сущностей (второй проход модели)
+## Entity effects (second model pass)
 
-`entity_tint`/`entity_outline` — тоже геометрия, но не мира, а модели сущности: `LivingEntityRendererMixin` в `submit` повторно вызывает `submitNodeCollector.submitModel` с тем же `model`/`state`/`poseStack`, но другим `RenderType`. У UUID нет поля в ванильном `EntityRenderState` — его добавляет mixin на `LivingEntityRenderState` (интерфейс `ITomVFXEntityState`), заполняя в `extractRenderState`. Оба рендер-тайпа построены на `DefaultVertexFormat.ENTITY` (вершины модели, шейдер игнорирует текстуры/оверлей/lightmap) с кастомными пайплайнами (`assets/tompfx/shaders/core/entity_fx.{vsh,fsh}`) поверх `MATRICES_FOG_LIGHT_DIR_SNIPPET` — стандартные UBO (Projection/DynamicTransforms/Fog/Globals) биндятся штатным путём, отдельные UBO не нужны.
+`entity_tint`/`entity_outline` are also geometry, but of the entity model rather than the world: `LivingEntityRendererMixin` in `submit` calls `submitNodeCollector.submitModel` again with the same `model`/`state`/`poseStack` but a different `RenderType`. Vanilla `EntityRenderState` has no UUID field — a mixin on `LivingEntityRenderState` adds one (the `ITomVFXEntityState` interface), filled in `extractRenderState`. Both render types use `DefaultVertexFormat.ENTITY` (model vertices; the shader ignores textures/overlay/lightmap) with custom pipelines (`assets/tompfx/shaders/core/entity_fx.{vsh,fsh}`) over `MATRICES_FOG_LIGHT_DIR_SNIPPET` — the standard UBOs (Projection/DynamicTransforms/Fog/Globals) are bound the standard way, no separate UBOs needed.
 
-- `entity_tint`: заливка модели; ARGB эффекта передаётся как `tintedColor` в `submitModel` и становится цветом вершины. Два режима по булеву `texture`: `1` — перекрашивание текстуры (texture rgb × цвет эффекта, сохраняется альфа текстуры), `0` — сплошной цвет с текстурой только как маской прозрачности (как ванильный `rendertype_outline`). Depth `LEQUAL` (перекрывается) или `ALWAYS_PASS` (`through_blocks: 1`), блендинг `TRANSLUCENT` — попадает в translucent-бакет `ModelFeatureRenderer` и рисуется после непрозрачных тел сущностей.
-- `entity_outline`: «перевёрнутый корпус» — модель масштабируется на `1 + width` вокруг вертикального центра (`boundingBoxHeight/2`), фрагментный шейдер отбрасывает лицевые грани (`gl_FrontFacing`), depth `LEQUAL` оставляет только ободок за силуэтом (или `ALWAYS_PASS` для сквозного свечения). Ширина задаётся масштабом, а не uniform'ом: у `submitModel`-пути нет привязки кастомного UBO для per-draw значения, а API пайплайнов не умеет front-cull.
+- `entity_tint`: a fill of the model; the effect ARGB is passed as `tintedColor` to `submitModel` and becomes the vertex color. Two modes selected by the boolean `texture`: `1` — recolour the texture (texture rgb × effect color, keeps the texture alpha), `0` — flat color with the texture only as an alpha mask (like vanilla `rendertype_outline`). Depth `LEQUAL` (occluded) or `ALWAYS_PASS` (`through_blocks: 1`), `TRANSLUCENT` blending — lands in the `ModelFeatureRenderer` translucent bucket and draws after opaque entity bodies.
+- `entity_outline`: an inverted hull — the model is scaled by `1 + width` around its vertical centre (`boundingBoxHeight/2`), the fragment shader discards front faces (`gl_FrontFacing`), depth `LEQUAL` leaves only the rim behind the silhouette (or `ALWAYS_PASS` for through-wall glow). Width is set by scale, not a uniform: the `submitModel` path has no way to bind a custom UBO for a per-draw value, and the pipeline API has no front-cull.
 
-Оба эффекта привязывают текстуру сущности как `Sampler0` и используют её как маску прозрачности: texel'ы с нулевой альфой отбрасываются, поэтому эффект повторяет силуэт текстуры, а не сплошной прямоугольник вокруг модели. Рендер-тайпы мемоизируются по `Identifier` текстуры (`LivingEntityRenderer.getTextureLocation(state)`, пробрасывается из миксина), пайплайны общие на (режим, через-блоки).
+Both effects bind the entity texture as `Sampler0` and use it as an alpha mask: texels with zero alpha are discarded, so the effect follows the texture silhouette rather than a flat box around the model. Render types are memoized by the texture `Identifier` (`LivingEntityRenderer.getTextureLocation(state)`, passed from the mixin); pipelines are shared per (mode, through-blocks).
 
-Цели задаются по UUID: `/vfx playentity <эффект> <селектор>` собирает до 16 UUID и шлёт их в `tompfx:vfx_trigger` (`entityUuids`); `VFXEffectManager.getActiveEntityEffects(uuid)` находит активные эффекты для конкретной сущности. Лимит UUID — `VFXTriggerPayload.MAX_ENTITY_UUIDS`.
+Targets are set by UUID: `/vfx playentity <effect> <selector>` collects up to 16 UUIDs and sends them in `tompfx:vfx_trigger` (`entityUuids`); `VFXEffectManager.getActiveEntityEffects(uuid)` finds the active effects for a specific entity. The UUID cap is `VFXTriggerPayload.MAX_ENTITY_UUIDS`.
 
-## Ограничения нагрузки (защита от спама эффектами)
+## Load limits (protection against effect spam)
 
-| Константа | Значение | Где |
+| Constant | Value | Where |
 |---|---|---|
-| `MAX_ACTIVE_EFFECTS` | 64 | `VFXEffectManager` — при превышении удаляется самый старый активный, с warning в лог |
-| `MAX_SCHEDULED_EFFECTS` | 128 | `VFXEffectManager` — лишние дочерние эффекты коллекций отбрасываются |
-| `MAX_COLLECTION_DEPTH` | 4 | `VFXEffectManager` — глубже вложенные коллекции игнорируются |
+| `MAX_ACTIVE_EFFECTS` | 64 | `VFXEffectManager` — on overflow the oldest active is removed, with a warning in the log |
+| `MAX_SCHEDULED_EFFECTS` | 128 | `VFXEffectManager` — extra collection children are dropped |
+| `MAX_COLLECTION_DEPTH` | 4 | `VFXEffectManager` — deeper nested collections are ignored |
 
-Любая новая коллекция/мапа, растущая от сетевого или датапак-ввода, должна получить аналогичный лимит (см. `AGENTS.md`).
+Any new collection/map that grows from network or datapack input must get a similar limit (see `AGENTS.md`).
 
-## Отказоустойчивость
+## Fault tolerance
 
-- `VFXDefinitionManager.prepare()` — одна поломанная запись датапака логируется и пропускается, остальные грузятся нормально (см. `docs/CHANGELOG.md`, фикс с `IllegalArgumentException`).
-- `VFXWorldOverlayRenderer.render()` — рендер каждого эффекта обёрнут в try/catch с логом; ошибка одного эффекта не блокирует остальные и не роняет кадр.
-- `VFXClient.handleTrigger` — пакет с несовпадающей `protocolVersion` молча игнорируется вместо падения.
+- `VFXDefinitionManager.prepare()` — one broken datapack entry is logged and skipped, the rest load normally (see `docs/CHANGELOG.md`, the `IllegalArgumentException` fix).
+- `VFXWorldOverlayRenderer.render()` — each effect's render is wrapped in try/catch with a log; an error in one effect does not block the rest or drop the frame.
+- `VFXClient.handleTrigger` — a packet with a mismatched `protocolVersion` is silently ignored instead of crashing.
 
 ---
-Смотри также: [API.md](API.md) — публичный Java API и сетевой протокол, [../docs/GUIDE.md](GUIDE.md) — пользовательский гайд.
+See also: [API.md](API.md) — the public Java API and network protocol, [../docs/GUIDE.md](GUIDE.md) — the user guide.

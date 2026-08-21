@@ -1,42 +1,42 @@
 # Contributing
 
-## Ветки
+## Branches
 
-Модель — GitHub Flow: `main` всегда собирается и готова к релизу, вся работа — в короткоживущих ветках от `main`, мёрж через PR.
+The model is GitHub Flow: `main` always builds and is release-ready, all work happens in short-lived branches off `main`, merged via PR.
 
-| Префикс | Когда использовать | Пример |
+| Prefix | When to use | Example |
 |---|---|---|
-| `feature/` | новая функциональность | `feature/block-outline-shell-mode` |
-| `fix/` | исправление бага | `fix/vfx-definition-reload-crash` |
-| `chore/` | рутина: зависимости, конфиги, CI, форматирование | `chore/bump-fabric-loader` |
-| `refactor/` | изменение структуры кода без изменения поведения | `refactor/effect-manager-split` |
-| `docs/` | только документация | `docs/update-guide-v12` |
-| `release/` | подготовка релиза (версия, changelog) | `release/1.1.0` |
-| `hotfix/` | срочный фикс прямо в проде/релизной ветке | `hotfix/network-payload-oom` |
+| `feature/` | new functionality | `feature/block-outline-shell-mode` |
+| `fix/` | bug fix | `fix/vfx-definition-reload-crash` |
+| `chore/` | routine: dependencies, configs, CI, formatting | `chore/bump-fabric-loader` |
+| `refactor/` | code structure change without behavior change | `refactor/effect-manager-split` |
+| `docs/` | documentation only | `docs/update-guide-v12` |
+| `release/` | release preparation (version, changelog) | `release/1.1.0` |
+| `hotfix/` | urgent fix straight into prod/release branch | `hotfix/network-payload-oom` |
 
-`main` защищена: прямые пуши запрещены, только PR с зелёной сборкой (`./gradlew build`).
+`main` is protected: direct pushes are forbidden, only PRs with a green build (`./gradlew build`).
 
-## Коммиты
+## Commits
 
-[Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <описание>`. `scope` — опционален, обычно пакет/подсистема (`effect`, `network`, `render`, `command`, `resource`, `client`).
+[Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <description>`. `scope` is optional, usually a package/subsystem (`effect`, `network`, `render`, `command`, `resource`, `client`).
 
-| Тип | Значение |
+| Type | Meaning |
 |---|---|
-| `feat` | новая функциональность, видимая пользователю/API |
-| `fix` | исправление бага |
-| `docs` | только документация (README, GUIDE, AGENTS, комментарии-доки) |
-| `style` | форматирование, отступы, точки с запятой — без изменения логики |
-| `refactor` | изменение кода без изменения поведения и без новой функциональности |
-| `perf` | изменение, направленное на производительность |
-| `test` | добавление/правка тестов |
-| `build` | система сборки, зависимости (`build.gradle`, `gradle.properties`) |
-| `ci` | конфигурация CI (`.github/workflows/*`) |
-| `chore` | прочая рутина, не подпадающая под остальные типы |
-| `revert` | откат предыдущего коммита |
+| `feat` | new functionality visible to users/API |
+| `fix` | bug fix |
+| `docs` | documentation only (README, GUIDE, AGENTS, doc comments) |
+| `style` | formatting, indentation, semicolons — no logic change |
+| `refactor` | code change without behavior change and without new functionality |
+| `perf` | a performance-oriented change |
+| `test` | adding/fixing tests |
+| `build` | build system, dependencies (`build.gradle`, `gradle.properties`) |
+| `ci` | CI configuration (`.github/workflows/*`) |
+| `chore` | other routine not covered by the rest |
+| `revert` | revert of a previous commit |
 
-Breaking change — восклицательный знак после типа/scope (`feat!:` или `feat(network)!:`) и/или футер `BREAKING CHANGE: <описание>`.
+Breaking change — an exclamation mark after type/scope (`feat!:` or `feat(network)!:`) and/or a `BREAKING CHANGE: <description>` footer.
 
-### Примеры (из истории проекта)
+### Examples (from project history)
 
 ```
 feat(effect): add shell mode to block_outline
@@ -75,7 +75,7 @@ refactor(client): extract CameraShakeManager from VFXEffectManager
 
 ## Pull Request
 
-- Один PR — одна логическая единица работы (не смешивай `feat` и `refactor` без необходимости).
-- PR должен собираться: `./gradlew build` зелёный.
-- Если меняется поведение эффектов, команд или Java API — обнови `docs/GUIDE.md` (добавь запись в changelog внизу файла) в том же PR.
-- Правки в форматирование/стиль кода — см. `AGENTS.md`.
+- One PR = one logical unit of work (don't mix `feat` and `refactor` unnecessarily).
+- The PR must build: `./gradlew build` green.
+- If effect/command/Java API behavior changes, update `docs/GUIDE.md` (add a changelog entry at the bottom of the file) in the same PR.
+- For formatting/code style fixes, see `AGENTS.md`.

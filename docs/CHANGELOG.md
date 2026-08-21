@@ -1,101 +1,101 @@
 # Changelog
 
-Формат — по мотивам [Keep a Changelog](https://keepachangelog.com/). Версии ниже — это версии гайда/фич-набора мода (как они шли исторически, см. `docs/GUIDE.md`), а не git-теги релиза: пока у проекта нет отдельного релизного версионирования (`gradle.properties` держит фиксированный `mod_version=1.0.0`). Новые записи добавляй сверху, в PR вместе с изменением поведения.
+Format follows [Keep a Changelog](https://keepachangelog.com/). The versions below are guide/feature-set versions of the mod (as they progressed historically, see `docs/GUIDE.md`), not git release tags: the project currently has no separate release versioning (`gradle.properties` keeps a fixed `mod_version=1.0.0`). Add new entries at the top, in the same PR as the behavior change.
 
 ## [Unreleased]
 ### Added
-- **Новый пост-эффект `speed_lines`** — радиальные «спидлайны» от центра экрана (или заданной точки `center_x/y`) для ощущения скорости. Параметры: `count` (10..200), `length` (0..1), `width` (0..1), `seed` (0..1000), `color_r/g/b`, `intensity`. Линии круглые (учтён aspect ratio), начинаются не от центра, а от `start_radius` до `start_radius + length`. Анимация `seed` через `expr` (напр. `"t * 2.0"`) заставляет линии хаотично сменяться. Встроенный `tompfx:speed_lines`; пример в датапаке `test_speed_lines` (добавлен в `vfx:test_all`).
+- **New post-effect `speed_lines`** — radial "speed lines" from the screen centre (or a given point `center_x/y`) to convey speed. Params: `count` (10..200), `length` (0..1), `width` (0..1), `seed` (0..1000), `color_r/g/b`, `intensity`. The lines are circular (aspect ratio accounted for), start not at the centre but from `start_radius` to `start_radius + length`. Animating `seed` via `expr` (e.g. `"t * 2.0"`) makes the lines swap chaotically. Built-in `tompfx:speed_lines`; datapack example `test_speed_lines` (added to `vfx:test_all`).
 ### Added
-- **Оверрайды параметров в `/vfx play`, `playat`, `playentity`.** Эти команды теперь принимают необязательный параметр-мап `{[имя:значение],...}` (как `/vfx set`), который переопределяет дефолтные параметры определения при запуске — включая мировые координаты (`pos_x/y/z`). Это даёт команде/датапаку ту же возможность, что у Java API (`sendEffect(...overrides)`).
+- **Parameter overrides in `/vfx play`, `playat`, `playentity`.** These commands now accept an optional param-map `{[name:value],...}` (like `/vfx set`) that overrides the definition's default params at trigger time — including world coordinates (`pos_x/y/z`). This gives the command/datapack the same capability as the Java API (`sendEffect(...overrides)`).
 ### Added
-- **Новые привязки и переменные игрока.** Привязки: `distance` (сырое расстояние от камеры до `pos` в блоках), `look_x/look_y/look_z` (компоненты вектора взгляда камеры), `player_x/player_y/player_z` (позиция локального игрока). В математических выражениях (`expr`) доступны переменные игрока: `health`, `hunger`, `speed`, `light_level`, `time_of_day`, `player_x/y/z`. Примеры в датапаке: `test_expr_health` (screen_flash, `expr: 1.0 - health`), `test_distance` (vignette по `bind: distance`).
+- **New bindings and player variables.** Bindings: `distance` (raw distance from the camera to `pos` in blocks), `look_x/look_y/look_z` (components of the camera's look vector), `player_x/player_y/player_z` (the local player's position). Math expressions (`expr`) now expose player variables: `health`, `hunger`, `speed`, `light_level`, `time_of_day`, `player_x/y/z`. Datapack examples: `test_expr_health` (screen_flash, `expr: 1.0 - health`), `test_distance` (vignette via `bind: distance`).
 ### Added
-- **Обратная связь при битых датапаках.** `/vfx list` теперь выводит список датапак-файлов, которые не распарсились на последнем `/reload`, вместе с текстом ошибки — раньше они молча скипались (только в лог). `VFXDefinitionManager` хранит `parseErrors` (id → сообщение).
+- **Feedback for broken datapacks.** `/vfx list` now prints the list of datapack files that failed to parse on the last `/reload`, with the error text — previously they were silently skipped (log only). `VFXDefinitionManager` stores `parseErrors` (id → message).
 ### Added
-- **`entity_selector` в определении эффекта.** Поле `entity_selector` (строка-селектор, напр. `"@e[type=minecraft:zombie,distance=..10]"`) позволяет entity-эффекту (`entity_tint`/`entity_outline`) самому находить цели: сервер резолвит селектор в UUID при каждом запуске, так что достаточно `/vfx play <эффект>` без `playentity`. Пример в датапаке — `test_zombie_outline`.
+- **`entity_selector` in the effect definition.** The `entity_selector` field (a selector string, e.g. `"@e[type=minecraft:zombie,distance=..10]"`) lets an entity effect (`entity_tint`/`entity_outline`) find its own targets: the server resolves the selector into UUIDs on every play, so `/vfx play <effect>` works without `playentity`. Datapack example — `test_zombie_outline`.
 ### Added
-- **`gradient_map`: режим построения градиента и координата цвета.** Новые параметры `mode` (0 = linear, 1 = constant/stepped) и `pos` (0..1, координата цвета). В linear-режиме `pos` сдвигает центр перехода (0.5 — без сдвига); в stepped-режиме — жёсткий порог: ярче `pos` → цвет `to`, темнее → `from` (удобно для масок/стилизованных теней). У встроенного `tompfx:gradient_map` добавлены дефолты `mode: 0`, `pos: 0.5`. Настоящий ч/б — linear с `from`=чёрный, `to`=белый, `pos`=0.5; жёсткая ч/б-маска — constant с `pos`=0.5 (0 — чёрный, 0.5+ — белый). Примеры в датапаке: `test_grayscale`, `test_grayscale_constant`, `test_gradient_constant`.
-- **`posterize`: чистое уменьшение числа цветов.** Убран пер-пиксельный дизеринг, который на большой силе давал крупные случайные цветные ступени («пиксельность»). Теперь шейдер делает чистое квантование (255 → 2 уровней) без зерна.
+- **`gradient_map`: gradient build mode and colour coordinate.** New params `mode` (0 = linear, 1 = constant/stepped) and `pos` (0..1, colour coordinate). In linear mode `pos` shifts the transition centre (0.5 — no shift); in stepped mode it is a hard threshold: brighter than `pos` → colour `to`, darker → `from` (useful for masks/stylized shadows). The built-in `tompfx:gradient_map` got defaults `mode: 0`, `pos: 0.5`. True grayscale — linear with `from`=black, `to`=white, `pos`=0.5; a hard black/white mask — constant with `pos`=0.5 (0 — black, 0.5+ — white). Datapack examples: `test_grayscale`, `test_grayscale_constant`, `test_gradient_constant`.
+- **`posterize`: clean colour reduction.** Removed the per-pixel dithering that produced large random colour steps at high strength ("pixelation"). The shader now does clean quantization (255 → 2 levels) without grain.
 ### Added
-- **Entity effects учитывают текстуру сущности.** `entity_tint`/`entity_outline` теперь привязывают текстуру сущности (`Sampler0`) и используют её как маску прозрачности (как ванильный `rendertype_outline`): прозрачные пиксели отбрасываются, поэтому эффект повторяет силуэт текстуры, а не сплошной прямоугольник вокруг модели. У `entity_tint` появился параметр `texture` (0/1): `1` — перекрашивание текстуры цветом (texture × цвет, виден узор), `0` — сплошной цвет с текстурой только как маской. Рендер-тайпы мемоизируются по текстуре сущности.
+- **Entity effects respect the entity texture.** `entity_tint`/`entity_outline` now bind the entity texture (`Sampler0`) and use it as an alpha mask (like vanilla `rendertype_outline`): transparent pixels are discarded, so the effect follows the texture silhouette rather than a flat box around the model. `entity_tint` gained a `texture` param (0/1): `1` — recolour the texture (texture × colour, pattern visible), `0` — flat colour with the texture only as a mask. Render types memoized per entity texture.
 ### Added
-- **Entity tint/outline (`entity_tint`, `entity_outline`)** — новые типы эффектов, нацеленные на сущностей по UUID. Новая подкоманда `/vfx playentity <effect> <targets>` собирает UUID целей (до 16) и передаёт их в `tompfx:vfx_trigger`; клиент сохраняет UUID на render-state живых сущностей (mixin `LivingEntityRenderState`) и во втором проходе перерисовывает модель сущности кастомным рендер-тайпом: `entity_tint` — сплошная полупрозрачная заливка цветом эффекта, `entity_outline` — «перевёрнутый корпус» (инфлейтированный силуэт с отбрасыванием лицевых граней), толщина через параметр `width`. Оба поддерживают `through_blocks` (0 — скрывается за стенами, 1 — виден сквозь них). Пайплайны регистрируются на клиенте, шейдеры — `assets/tompfx/shaders/core/entity_fx.{vsh,fsh}`.
+- **Entity tint/outline (`entity_tint`, `entity_outline`)** — new effect types targeting entities by UUID. New subcommand `/vfx playentity <effect> <targets>` collects target UUIDs (up to 16) and sends them in `tompfx:vfx_trigger`; the client stores the UUID on the render state of living entities (mixin `LivingEntityRenderState`) and, in a second pass, redraws the entity model with a custom render type: `entity_tint` — a solid translucent fill of the effect colour, `entity_outline` — an inverted hull (inflated silhouette with front faces discarded), thickness via `width`. Both support `through_blocks` (0 — hidden behind walls, 1 — visible through them). Pipelines registered on the client, shaders — `assets/tompfx/shaders/core/entity_fx.{vsh,fsh}`.
 ### Fixed
-- **Camera shake снова работает**: пер-инстансный seed (`instanceSeed`) сдвигал домен шума на `seed * 0.0001` — для случайного 64-битного seed это ~10¹⁴, `SimplexNoise.fastFloor` переполняет int-каст, и все сэмплы шума становились ровно 0 → тряска молча не проигрывалась. Теперь seed маскируется до 32 бит (диапазон фазы ~4.3e5, безопасен для int-решётки).
+- **Camera shake works again**: the per-instance seed (`instanceSeed`) shifted the noise domain by `seed * 0.0001` — for a random 64-bit seed that's ~10¹⁴, `SimplexNoise.fastFloor` overflows the int cast, and all noise samples became exactly 0 → the shake silently didn't play. The seed is now masked to 32 bits (phase range ~4.3e5, safe for the int lattice).
 ### Added
-- **Математические выражения в параметрах** — новый способ задания параметра через `"expr": "sin(t * 0.1) + noise(x, y, z) * 0.2"`. Доступны переменные `t` (тики от старта), `x`/`y`/`z` (координаты камеры), константы `pi`/`e`; функции `sin`, `cos`, `abs`, `min`, `max`, `pow`, `sqrt`, `random()` (0..1), `noise(x,y,z)` (simplex 3D, -1..1). Строка компилируется в AST один раз (Recursive Descent Parser) при создании экземпляра и оценивается каждый кадр через `eval(t,x,y,z)` — парсинга по кадрам нет. `random()`/`noise()` детерминированы по per-instance seed, так что каждый экземпляр даёт свой шум.
-- **Уникальный шум camera shake** — `VFXActiveEffect` несёт случайный `instanceSeed`; `CameraShakeManager` сдвигает домен шума на этот seed, поэтому каждый `/vfx play tompfx:camera_shake` даёт неповторяющуюся тряску.
-- `SimplexNoise` перенесён в общий (common) исходник (`com.tom.vfx.noise`) — теперь доступен и для математических выражений, и для тряски камеры.
-- **Параметры звука `volume`/`pitch`** — звук эффекта (поле `sound`) теперь может задавать громкость и высоту тона через зарезервированные параметры `volume`/`pitch`, поддерживающие все режимы (константа, анимация, бинд к миру/камере, выражение). Значения читаются один раз на момент старта (одноразовый звук). Пример: `"volume": { "bind": "proximity", "pos": [8,80,8], "range": 32 }` — громче рядом с точкой.
-- **Позиционный звук `sound_pos`** — поле `sound_pos: [x,y,z]` воспроизводит звук в мире на координатах через ванильную механику (как `/playsound ... x y z`, с затуханием по расстоянию); без него звук играет лично игроку. Позиция переопределяется через API (`sound_pos_x/y/z` в оверрайдах `sendEffect`).
+- **Math expressions in params** — a new way to set a param via `"expr": "sin(t * 0.1) + noise(x, y, z) * 0.2"`. Variables: `t` (ticks since start), `x`/`y`/`z` (camera coordinates), constants `pi`/`e`; functions `sin`, `cos`, `abs`, `min`, `max`, `pow`, `sqrt`, `random()` (0..1), `noise(x,y,z)` (simplex 3D, -1..1). The string compiles to an AST once (Recursive Descent Parser) when the instance is created and is evaluated every frame via `eval(t,x,y,z)` — no per-frame parsing. `random()`/`noise()` are deterministic per-instance seed, so each instance gets its own noise.
+- **Unique camera shake** — `VFXActiveEffect` carries a random `instanceSeed`; `CameraShakeManager` shifts the noise domain by this seed, so every `/vfx play tompfx:camera_shake` gives a non-repeating shake.
+- `SimplexNoise` moved to the shared (common) source (`com.tom.vfx.noise`) — now available both to math expressions and to camera shake.
+- **Sound params `volume`/`pitch`** — the effect sound (the `sound` field) can now set volume and pitch via the reserved `volume`/`pitch` params, supporting all modes (constant, animation, world/camera bind, expression). Values are read once at start time (one-shot sound). Example: `"volume": { "bind": "proximity", "pos": [8,80,8], "range": 32 }` — louder near the point.
+- **Positional sound `sound_pos`** — the `sound_pos: [x,y,z]` field plays the sound in the world at coordinates via the vanilla mechanism (like `/playsound ... x y z`, with distance falloff); without it the sound plays directly to the player. The position is overridable via the API (`sound_pos_x/y/z` in `sendEffect` overrides).
 ### Security
-- Ограничены размеры серверных пакетов: карта параметров в `tompfx:vfx_trigger` — максимум 32 записи; карты определений/кривых в `tompfx:vfx_sync` — 1024/256 записей (строки уже капятся `ByteBufCodecs.STRING_UTF8`). Защищает клиент от OOM при враждебном/битом сервере.
-- `VFXSyncPayload` получил `protocolVersion` (проверяется на клиенте перед применением).
-- `VFXEffectManager.play` капит длительность от сервера (`MAX_DURATION_TICKS` = 1 час); persistent/loop-семантика из определения сохраняется, но произвольный отрицательный/огромный `durationTicks` от сервера больше не создаёт бесконечный эффект.
-- `VFXEffectManager.stop(effectId, instanceId)` проверяет, что instance принадлежит указанному эффекту, — серверный instance id не может остановить чужой экземпляр.
-- Мутирующие подкоманды `/vfx` (`play`, `playat`, `stop`, `set`, `key`) требуют права оператора (gamemaster level 2); `/vfx list` остаётся открытым.
-- Лог клиента больше не выводит позицию пакета (меньше шума при спаме).
+- Server packet sizes bounded: the param map in `tompfx:vfx_trigger` — max 32 entries; the definition/curve maps in `tompfx:vfx_sync` — 1024/256 entries (strings already capped by `ByteBufCodecs.STRING_UTF8`). Protects the client from OOM on a hostile/broken server.
+- `VFXSyncPayload` got `protocolVersion` (checked on the client before applying).
+- `VFXEffectManager.play` caps server-supplied duration (`MAX_DURATION_TICKS` = 1 hour); persistent/loop semantics from the definition are preserved, but an arbitrary negative/huge `durationTicks` from the server no longer creates an infinite effect.
+- `VFXEffectManager.stop(effectId, instanceId)` checks that the instance belongs to the given effect — a server-supplied instance id cannot stop another instance.
+- The mutating `/vfx` subcommands (`play`, `playat`, `stop`, `set`, `key`) require operator rights (gamemaster level 2); `/vfx list` stays open.
+- The client log no longer prints the packet position (less noise on spam).
 ### Fixed
-- **Datapack VFX-эффекты и кривые теперь синхронизируются с клиентами выделенного сервера.** Раньше `VFXDefinitionManager`/`VFXCurveManager` грузили определения только с `PackType.SERVER_DATA`, поэтому клиент dedicated-сервера держал лишь встроенные `tompfx:*` и игнорировал кастомные датапак-эффекты (`Ignoring unknown VFX effect`). Добавлен сервер→клиент пакет `tompfx:vfx_sync` (сырые JSON определений и кривых), который отправляется каждому игроку при входе (`ServerLifecycleEvents.SYNC_DATA_PACK_CONTENTS`) и всем после `/reload` (`END_DATA_PACK_RELOAD`); клиент мержит их поверх встроенных эффектов.
+- **Datapack VFX effects and curves now sync with dedicated-server clients.** Previously `VFXDefinitionManager`/`VFXCurveManager` loaded definitions only from `PackType.SERVER_DATA`, so a dedicated-server client held only the built-in `tompfx:*` and ignored custom datapack effects (`Ignoring unknown VFX effect`). Added a server→client `tompfx:vfx_sync` packet (raw definition/curve JSON) sent to each player on join (`ServerLifecycleEvents.SYNC_DATA_PACK_CONTENTS`) and to everyone after `/reload` (`END_DATA_PACK_RELOAD`); the client merges them over the built-ins.
 ### Added
-- Прямая передача мировой позиции в `VFXAPI.sendEffect(player, effectId, Vec3 worldPos, ...)` — клиент перепривязывает пространственные биндинги (`screen_x/y`, `proximity`) к точке без хака с `pos_x/y/z`.
-- Поле `position` и `instanceId` в пакете `tompfx:vfx_trigger` — остановка конкретного экземпляра эффекта через `sendStop(player, effectId, instanceId)`.
-- Кастомные кривые easing: именованные файлы `data/<ns>/vfx_curves/<имя>.json` (массив опорных точек `points`) и инлайн-объекты `"easing": { "curve": [[t,v],...] }` — в любом месте, где ожидается easing (дефолт эффекта, keyframe, child эффект коллекции).
-- Мультипликативный модификатор параметра: `"strength": { "keyframes": [...], "multiply": { "bind": "proximity", ... } }` — итоговое значение = база × множитель (например, анимированная вмятина с затуханием по расстоянию до точки).
-- Клиентский `VFXAPI.playEffectId(...)` возвращает id созданного экземпляра; `VFXAPI.stopEffect(long instanceId)` останавливает один конкретный экземпляр.
+- Direct world-position passing in `VFXAPI.sendEffect(player, effectId, Vec3 worldPos, ...)` — the client re-anchors spatial bindings (`screen_x/y`, `proximity`) to the point without the `pos_x/y/z` hack.
+- `position` and `instanceId` fields in the `tompfx:vfx_trigger` packet — stopping a specific effect instance via `sendStop(player, effectId, instanceId)`.
+- Custom easing curves: named files `data/<ns>/vfx_curves/<name>.json` (an array of control points `points`) and inline objects `"easing": { "curve": [[t,v],...] }` — anywhere an easing is expected (effect default, keyframe, collection child).
+- Multiplicative param modifier: `"strength": { "keyframes": [...], "multiply": { "bind": "proximity", ... } }` — final value = base × multiplier (e.g. an animated dent fading with distance to a point).
+- Client `VFXAPI.playEffectId(...)` returns the id of the created instance; `VFXAPI.stopEffect(long instanceId)` stops one specific instance.
 ### Changed
-- **BREAKING**: `PROTOCOL_VERSION` 2 → 4: пакет несёт опциональную позицию и instance id; поле easing теперь имя строкой (встроенное или id кастомной кривой).
-- `/vfx playat` переведён на новое поле позиции пакета (оставлена обратная совместимость со старым трюком через `pos_x/y/z`).
-- `VFXTimeline` поддерживает мультипликаторы параметров наравне с bindings (перепривязка позиции перенастраивает и их).
-- `VFXDefinitionManager`/`VFXCurveManager` хранят сырые JSON-источники для сетевой синхронизации; парсинг вынесен в `reload()`.
+- **BREAKING**: `PROTOCOL_VERSION` 2 → 4: the packet carries an optional position and instance id; the easing field is now a string name (built-in or custom curve id).
+- `/vfx playat` moved to the new packet position field (backward compat with the old `pos_x/y/z` trick kept).
+- `VFXTimeline` supports param multipliers alongside bindings (position rebinding reconfigures both).
+- `VFXDefinitionManager`/`VFXCurveManager` store raw JSON sources for network sync; parsing moved into `reload()`.
 ### Fixed
-- `VFXDefinitionManager.prepare()` больше не прерывает загрузку всех VFX-определений из-за одного некорректного файла датапака — расширен `catch` до `IllegalArgumentException` (раньше туда попадали, например, неизвестный `type` или битый `positions`).
+- `VFXDefinitionManager.prepare()` no longer aborts loading all VFX definitions because of one malformed datapack file — `catch` widened to `IllegalArgumentException` (previously an unknown `type` or broken `positions` would hit it).
 ### Changed
-- `getModelQuads()` (`VFXWorldOverlayRenderer`) теперь логирует ошибку при сборе геометрии блока вместо тихого проглатывания.
+- `getModelQuads()` (`VFXWorldOverlayRenderer`) now logs an error when collecting block geometry instead of silently swallowing it.
 ### Docs
-- Пользовательский гайд перенесён в `docs/GUIDE.md`; добавлены `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `docs/API.md`, `docs/ARCHITECTURE.md`, `docs/CHANGELOG.md`.
+- The user guide moved to `docs/GUIDE.md`; added `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `docs/API.md`, `docs/ARCHITECTURE.md`, `docs/CHANGELOG.md`.
 
 ## v11
-- У `block_outline` два режима по булеву `shell` (по умолч. `0`): `0` — выдавленные стенки, `1` — классическая расширенная оболочка задними гранями, обрезаемая самим блоком через depth-буфер.
+- `block_outline` has two modes by the boolean `shell` (default `0`): `0` — extruded walls, `1` — a classic scaled shell with back faces, clipped by the block via the depth buffer.
 
 ## v10
-- Обводка переделана с масштабированной оболочки на «стенки» (каждая грань выдавливается наружу вдоль нормали на `width/2`) — контур физически не может закрывать сам блок ни в одном режиме.
-- Дефолт `through_blocks` для `block_outline` теперь `0` (перекрывается другими блоками), для `block_tint` — `1` (сквозной).
+- The outline was reworked from a scaled shell to "walls" (each face is extruded outwards along its normal by `width/2`) — the contour physically cannot cover the block in either mode.
+- `block_outline` `through_blocks` default is now `0` (occluded by other blocks), `block_tint` — `1` (see-through).
 
 ## v9
-- `through_blocks` (0/1) у `block_tint`/`block_outline` — видимость сквозь блоки или с перекрытием.
-- Обводка больше не закрывает сам блок (оболочка рисуется только задними гранями и маскируется глубиной самого блока).
-- `/vfx playat` снова корректно задаёт позицию (позиции из команды имеют приоритет над `positions` дефиниции).
-- `sound` у `collection` теперь проигрывается (локально, только целевым игрокам).
+- `through_blocks` (0/1) on `block_tint`/`block_outline` — visibility through blocks or with occlusion.
+- The outline no longer covers the block itself (the shell is drawn only with back faces and masked by the block's own depth).
+- `/vfx playat` correctly sets the position again (command positions take priority over the definition's `positions`).
+- `sound` on `collection` now plays (locally, only to targeted players).
 
 ## v8
-- Добавлены `vignette`, `screen_flash`, `motion_blur`, `fov_modifier`.
-- Возвращён `block_tint`.
-- `block_outline` переписан как масштабированная оболочка модели с мультиблочностью (`positions`) и отключённым depth-тестом.
-- Сетевой протокол получил поле `action` (`PLAY`/`STOP`) и версию (`protocolVersion`).
-- Датапаки поддерживают `sound` и `positions`.
-- Адаптивный blur; `distortion` поддерживает отрицательные значения `amount`.
-- Команда `/vfx playat` для быстрого тестирования block-эффектов по координатам.
+- Added `vignette`, `screen_flash`, `motion_blur`, `fov_modifier`.
+- `block_tint` restored.
+- `block_outline` rewritten as a scaled model shell with multi-block support (`positions`) and depth test disabled.
+- The network protocol gained an `action` field (`PLAY`/`STOP`) and a version (`protocolVersion`).
+- Datapacks support `sound` and `positions`.
+- Adaptive blur; `distortion` supports negative `amount` values.
+- The `/vfx playat` command for quick block-effect testing by coordinates.
 
 ## v7
-- `block_tint` удалён; обводка переписана на собственный шейдер `tompfx:core/block_outline`.
+- `block_tint` removed; the outline rewritten onto the custom shader `tompfx:core/block_outline`.
 
 ## v6
-- Фикс тинта под Iris (собственный пайплайн вместо `debug_filled_box`).
-- Отказоустойчивость оверлеев (try/catch на эффект и сброс).
-- Привязка `look` (yaw/pitch/range) для привязки эффектов к повороту камеры.
+- Tint fixed under Iris (custom pipeline instead of `debug_filled_box`).
+- Overlay fault tolerance (try/catch per effect and on flush).
+- The `look` binding (yaw/pitch/range) to bind effects to the camera rotation.
 
 ## v5
-- Геометрия модели для тинта/обводки; обводка со depth-тестом (только снаружи); `loop`; гайд создан.
+- Model geometry for tint/outline; outline with depth test (outside only); `loop`; guide created.
 
 ## v4
-- `block_tint`, `block_outline`, `persistent`/`fade_ticks`, `collection`. *(историч.: тинт кубом)*
+- `block_tint`, `block_outline`, `persistent`/`fade_ticks`, `collection`. *(historically: cube tint)*
 
 ## v3
-- Привязки к миру (`bind`), `dent`.
+- World bindings (`bind`), `dent`.
 
 ## v2
-- Keyframes, двухпроходный blur, posterize, подсказки команд.
+- Keyframes, two-pass blur, posterize, command hints.
 
 ## v1
-- Базовые шейдерные эффекты, `camera_shake`, датапаки, команды, сеть.
+- Base shader effects, `camera_shake`, datapacks, commands, network.

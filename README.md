@@ -1,17 +1,17 @@
 # TOM Post Effects (tompfx)
 
-Клиентская VFX-библиотека для Minecraft на Fabric: пост-обработка экрана (хроматическая аберрация, цветокоррекция, дисторсия, блюр, пикселизация и др.), тряска камеры, мировые оверлеи блоков (тинт/обводка), датапак-эффекты, сетевые триггеры сервер→клиент и публичный Java API для других модов.
+A client-side VFX library for Minecraft on Fabric: screen post-processing (chromatic aberration, color grading, distortion, blur, pixelation and more), camera shake, world block overlays (tint/outline), entity effects (tint/outline by UUID), datapack-defined effects, server→client network triggers and a public Java API for other mods.
 
-## Требования
+## Requirements
 
 | | |
 |---|---|
 | Minecraft | ~26.1 |
 | Fabric Loader | >=0.19.3 |
-| Fabric API | обязателен |
-| Java | 25+ (JDK 25, см. ниже) |
+| Fabric API | required |
+| Java | 25+ (JDK 25, see below) |
 
-## Быстрый старт
+## Quick start
 
 ```bash
 git clone https://github.com/Artition/TOMvfx.git
@@ -19,40 +19,50 @@ cd TOMvfx
 ./gradlew build
 ```
 
-Собранный джар — в `build/libs/`. Для сборки нужен JDK 25 в `JAVA_HOME` (или `org.gradle.java.home` в `gradle.properties`) — старший JDK не подхватит `--release 25`.
+The built jar is in `build/libs/`. Building requires JDK 25 in `JAVA_HOME` (or `org.gradle.java.home` in `gradle.properties`) — an older JDK will not pick up `--release 25`.
 
-Запустить тестовый клиент/сервер прямо из проекта:
+Run a test client/server directly from the project:
 
 ```bash
 ./gradlew runClient
 ./gradlew runServer
 ```
 
-## Использование
+## Features
 
-Полный гайд по командам (`/vfx play`, `/vfx playat`, `/vfx stop`, `/vfx list`), встроенным типам эффектов и формату датапаков (`data/<namespace>/vfx/<effect>.json`) — в **[docs/GUIDE.md](docs/GUIDE.md)**.
+- **Post-processing effects** (ping-pong FBO, screen-space): `chromatic_aberration`, `color_grade`, `distortion`, `dent`, `gradient_map`, `posterize`, `blur`, `pixelate`, `hue_isolation`, `vignette`, `screen_flash`, `motion_blur`, `bloom`, `film_grain`, `scanlines`, `depth_of_field`, `letterbox`, `invert`, `vortex`, `speed_lines`.
+- **Camera shake** — simplex-noise camera shake with a smooth envelope (`camera_shake`) and FOV modifier (`fov_modifier`).
+- **World block overlays** — `block_tint` and `block_outline` rendered as world-space geometry.
+- **Entity effects** — `entity_tint` and `entity_outline` applied to entities by UUID (second-pass model render, texture-aware).
+- **Datapack-defined effects** — declarative JSON (`data/<namespace>/vfx/<effect>.json`), animated params, keyframes, world/camera/player bindings, math expressions, collections, sounds.
+- **Network triggers** — server→client `tompfx:vfx_trigger`, datapack sync over `tompfx:vfx_sync`.
+- **Public Java API** — `VFXAPI` for other mods.
 
-Минимальный пример из Java API:
+## Usage
+
+The full guide on commands (`/vfx play`, `/vfx playat`, `/vfx playentity`, `/vfx stop`, `/vfx set`, `/vfx key`, `/vfx list`), built-in effect types and the datapack format (`data/<namespace>/vfx/<effect>.json`) is in **[docs/GUIDE.md](docs/GUIDE.md)**.
+
+Minimal Java API example:
 
 ```java
-// Сервер → клиент
+// Server → client
 VFXAPI.sendEffect(serverPlayer, Identifier.of("tompfx", "screen_flash"), Map.of(), null);
 
-// Локально на клиенте
+// Locally on the client
 VFXAPI.playEffect(Identifier.of("tompfx", "camera_shake"), 20, Map.of("amplitude_x", 0.2F), null);
 ```
 
-## Документация
+## Documentation
 
-| Файл | Что внутри |
+| File | Contents |
 |---|---|
-| [docs/GUIDE.md](docs/GUIDE.md) | Команды, типы эффектов, формат датапаков, привязки к миру/камере |
-| [docs/API.md](docs/API.md) | Java API (`VFXAPI`), сетевой протокол `tompfx:vfx_trigger` |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Как это устроено под капотом: пайплайн рендера, дата-флоу, лимиты нагрузки |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md) | История изменений по версиям |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Соглашения по веткам и коммитам |
-| [AGENTS.md](AGENTS.md) | Инструкции для AI-агентов, работающих в этом репозитории |
+| [docs/GUIDE.md](docs/GUIDE.md) | Commands, effect types, datapack format, world/camera/player bindings |
+| [docs/API.md](docs/API.md) | Java API (`VFXAPI`), network protocol `tompfx:vfx_trigger` |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How it works under the hood: render pipeline, data flow, load limits |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | Versioned change history |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branch and commit conventions |
+| [AGENTS.md](AGENTS.md) | Instructions for AI agents working in this repository |
 
-## Лицензия
+## License
 
-MIT — см. заголовок `fabric.mod.json` (`"license": "MIT"`).
+MIT — see the header in `fabric.mod.json` (`"license": "MIT"`).

@@ -1,96 +1,96 @@
 # Java API
 
-Публичный API для других модов, взаимодействующих с tompfx. Обратная совместимость важна — не ломай сигнатуры без веской причины (см. `AGENTS.md`).
+The public API for other mods interacting with tompfx. Backward compatibility matters — don't break signatures without good reason (see `AGENTS.md`).
 
 ## `com.tom.vfx.api.VFXAPI`
 
-Класс без состояния (все методы статические), точка входа для остальных модов.
+A stateless class (all methods static), the entry point for other mods.
 
-### Сервер → клиент (по сети)
+### Server → client (over the network)
 
 ```java
-// Резолвит датапак/встроенное определение effectId, мёржит его дефолтные константные
-// параметры с overrides, берёт длительность/easing из определения (если не заданы явно),
-// и шлёт VFXTriggerPayload игроку. Возвращает false, если effectId неизвестен.
+// Resolves the datapack/built-in effectId, merges its default constant params with overrides,
+// takes the duration/easing from the definition (if not given explicitly), and sends a
+// VFXTriggerPayload to the player. Returns false if effectId is unknown.
 boolean sendEffect(ServerPlayer player, Identifier effectId, Map<String, Float> overrides, @Nullable EasingType easing);
 
-// То же, но с явной мировой позицией: клиент сразу перепривязывает пространственные биндинги
-// (screen_x/screen_y/proximity) к этой точке и использует её для позиций эффекта —
-// без хака с pos_x/pos_y/pos_z.
+// Same, but with an explicit world position: the client immediately re-anchors spatial
+// bindings (screen_x/screen_y/proximity) to that point and uses it for the effect's positions —
+// no pos_x/pos_y/pos_z hack.
 boolean sendEffect(ServerPlayer player, Identifier effectId, Vec3 worldPos, Map<String, Float> overrides, @Nullable EasingType easing);
 
-// То же с явным instance id (0 = клиент назначит сам). Позволяет позже остановить именно этот
-// экземпляр через sendStop(player, effectId, instanceId), а не все экземпляры эффекта разом.
+// Same with an explicit instance id (0 = the client assigns one). Lets you later stop exactly
+// this instance via sendStop(player, effectId, instanceId) instead of every instance of the effect.
 boolean sendEffect(ServerPlayer player, Identifier effectId, long instanceId, @Nullable Vec3 worldPos, Map<String, Float> overrides, @Nullable EasingType easing);
 
-// Явный вариант без обращения к реестру определений — все поля пакета задаются вручную.
+// Explicit variant without consulting the definition registry — all packet fields are set manually.
 void sendEffect(ServerPlayer player, Identifier effectId, int durationTicks, Map<String, Float> params, EasingType easing);
 
-// Полный вариант: длительность, instance id, мировая позиция, UUID целей для entity-эффектов
-// (entity_tint/entity_outline), оверрайды параметров и easing. entityUuids — до 16 UUID;
-// пустой список для всех остальных типов эффектов.
+// Full variant: duration, instance id, world position, entity UUID targets for entity effects
+// (entity_tint/entity_outline), parameter overrides and easing. entityUuids — up to 16 UUIDs;
+// an empty list for all other effect types.
 void sendEffect(ServerPlayer player, Identifier effectId, int durationTicks, long instanceId, @Nullable Vec3 worldPos, List<UUID> entityUuids, Map<String, Float> overrides, @Nullable EasingType easing);
 
-// Останавливает эффект на клиенте игрока (все его экземпляры).
+// Stops the effect on the player's client (all its instances).
 void sendStop(ServerPlayer player, Identifier effectId);
 
-// Останавливает один конкретный экземпляр эффекта (см. sendEffect с instanceId).
+// Stops one specific instance of an effect (see sendEffect with instanceId).
 void sendStop(ServerPlayer player, Identifier effectId, long instanceId);
 
-// Живой override параметра играющего эффекта (без перезапуска таймлайна).
-// Игнорируется клиентом с warning'ом в лог, если эффект сейчас не играет.
+// Live-overrides a parameter of a running effect (without restarting the timeline).
+// Ignored by the client with a warning in the log if the effect is not currently running.
 void sendSetParam(ServerPlayer player, Identifier effectId, String param, float value);
 
-// Добавляет/заменяет ключевой кадр параметра играющего эффекта.
+// Adds/replaces a keyframe of a parameter of a running effect.
 void sendKeyframe(ServerPlayer player, Identifier effectId, String param, int timeTicks, float value, EasingType easing);
 ```
 
-### Клиент (локально, без сети)
+### Client (locally, without the network)
 
 ```java
-// durationTicks: 0 = дефолт определения, отрицательное = persistent.
-// Возвращает false, если вызвано не на клиенте (например, на dedicated-сервере) —
-// в этом случае нужно использовать sendEffect().
+// durationTicks: 0 = definition default, negative = persistent.
+// Returns false if called off-client (e.g. on a dedicated server) —
+// in that case use sendEffect().
 boolean playEffect(Identifier effectId, int durationTicks, Map<String, Float> params, @Nullable EasingType easing);
 boolean playEffect(Identifier effectId, int durationTicks, Map<String, Float> params); // linear easing
 
-// Как playEffect, но возвращает id созданного экземпляра (0 при ошибке) — чтобы остановить
-// один конкретный экземпляр из нескольких одновременных через stopEffect(instanceId).
+// Like playEffect, but returns the id of the created instance (0 on error) — so you can stop
+// one specific instance out of several concurrent ones via stopEffect(instanceId).
 long playEffectId(Identifier effectId, int durationTicks, Map<String, Float> params, @Nullable EasingType easing);
 
-boolean stopEffect(Identifier effectId);          // все экземпляры эффекта
-boolean stopEffect(long instanceId);              // один конкретный экземпляр
+boolean stopEffect(Identifier effectId);          // every instance of the effect
+boolean stopEffect(long instanceId);              // one specific instance
 boolean stopAllEffects();
 ```
 
 ### `VFXLocalDispatcher`
 
-Мост, который клиентский энтрипоинт (`VFXClient`) регистрирует через `VFXAPI.setLocalDispatcher(...)`, чтобы `playEffect`/`stopEffect`/`stopAllEffects` могли выполниться без сетевого пакета. Другим модам реализовывать его не нужно — это внутренняя часть связи common ↔ client кода мода.
+A bridge the client entrypoint (`VFXClient`) registers via `VFXAPI.setLocalDispatcher(...)` so `playEffect`/`stopEffect`/`stopAllEffects` can run without a network packet. Other mods don't need to implement it — it's an internal part of the common↔client link of the mod.
 
-## Реестр определений — `VFXDefinitionManager`
+## Definition registry — `VFXDefinitionManager`
 
 ```java
-VFXDefinitionManager.get().get(effectId);        // VFXDefinition или null
-VFXDefinitionManager.get().contains(effectId);   // есть ли эффект (встроенный или из датапака)
-VFXDefinitionManager.get().getDefinitions();      // Map<Identifier, VFXDefinition> — снимок всех известных эффектов
+VFXDefinitionManager.get().get(effectId);        // VFXDefinition or null
+VFXDefinitionManager.get().contains(effectId);   // whether the effect exists (built-in or datapack)
+VFXDefinitionManager.get().getDefinitions();      // Map<Identifier, VFXDefinition> — snapshot of all known effects
 ```
 
-Обновляется на каждом `/reload` (см. `VFXDefinitionManager.prepare`/`apply`); одна поломанная запись в датапаке логируется и пропускается, остальные эффекты продолжают грузиться нормально.
+Updated on every `/reload` (see `VFXDefinitionManager.prepare`/`apply`); one broken datapack entry is logged and skipped, the rest load normally.
 
-## Сетевой протокол
+## Network protocol
 
-Пакет `tompfx:vfx_trigger` (`VFXTriggerPayload`), направление — clientbound play.
+The `tompfx:vfx_trigger` packet (`VFXTriggerPayload`), clientbound play.
 
-| Поле | Тип | Описание |
+| Field | Type | Description |
 |---|---|---|
-| `protocolVersion` | byte | Текущее значение — `VFXTriggerPayload.PROTOCOL_VERSION`. Клиент **молча игнорирует** пакет при несовпадении версии (см. `VFXClient.handleTrigger`). |
-| `effectId` | `Identifier` | ID эффекта (встроенный или датапак) |
-| `action` | `VFXAction` (`PLAY`/`STOP`/`SET_PARAM`/`KEYFRAME`) | `SET_PARAM`/`KEYFRAME` применяются к **играющим** экземплярам эффекта: `params` несёт ровно одну запись `имя → значение`, для `KEYFRAME` время кадра — в `durationTicks`, easing сегмента — в `easing` |
-| `durationTicks` | varint | 0 = дефолт определения, отрицательное = persistent (только для `PLAY`) |
-| `params` | `Map<String, Float>` | Переопределения констант, только числа |
-| `easing` | `EasingType` (строка) | |
+| `protocolVersion` | byte | Current value — `VFXTriggerPayload.PROTOCOL_VERSION`. The client **silently ignores** the packet on a version mismatch (see `VFXClient.handleTrigger`). |
+| `effectId` | `Identifier` | Effect id (built-in or datapack) |
+| `action` | `VFXAction` (`PLAY`/`STOP`/`SET_PARAM`/`KEYFRAME`) | `SET_PARAM`/`KEYFRAME` apply to **running** effect instances: `params` carries exactly one `name → value` entry, for `KEYFRAME` the frame time is in `durationTicks`, the segment easing in `easing` |
+| `durationTicks` | varint | 0 = definition default, negative = persistent (only for `PLAY`) |
+| `params` | `Map<String, Float>` | Constant overrides, numbers only |
+| `easing` | `EasingType` (string) | |
 
-Бампай `PROTOCOL_VERSION` при любом breaking-изменении формата пакета — иначе старые клиенты будут молча игнорировать новые пакеты без единого предупреждения в лог.
+Bump `PROTOCOL_VERSION` on any breaking packet-format change — otherwise old clients silently ignore new packets without a single warning in the log.
 
 ---
-Смотри также: [../docs/GUIDE.md](GUIDE.md) — пользовательский гайд (команды, датапаки), [ARCHITECTURE.md](ARCHITECTURE.md) — как это рендерится под капотом.
+See also: [../docs/GUIDE.md](GUIDE.md) — user guide (commands, datapacks), [ARCHITECTURE.md](ARCHITECTURE.md) — how rendering works under the hood.
