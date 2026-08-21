@@ -13,7 +13,7 @@ layout(std140) uniform Config {
     float center_x;
     float center_y;
     float count;
-    float length;
+    float line_length;
     float width;
     float seed;
     float color_r;
@@ -51,7 +51,7 @@ void main() {
 
     // Length mask: lines start a bit away from the centre and end at start + length.
     float startRadius = 0.1;
-    float endRadius = startRadius + clamp(length, 0.0, 1.0);
+    float endRadius = startRadius + clamp(line_length, 0.0, 1.0);
     float distMask = smoothstep(startRadius, startRadius + 0.02, dist)
         * (1.0 - smoothstep(endRadius - 0.05, endRadius, dist));
 
