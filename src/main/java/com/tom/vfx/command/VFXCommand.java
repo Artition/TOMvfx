@@ -61,10 +61,19 @@ public final class VFXCommand {
 						.then(
 							Commands.argument("effect", IdentifierArgument.id())
 								.suggests(VFXCommand::suggestEffects)
-								.executes(context2 -> play(context2, List.of(requirePlayer(context2))))
+								.executes(context2 -> play(context2, List.of(requirePlayer(context2)), Map.of()))
 								.then(
 									Commands.argument("targets", EntityArgument.players())
-										.executes(context2 -> play(context2, EntityArgument.getPlayers(context2, "targets")))
+										.executes(context2 -> play(context2, EntityArgument.getPlayers(context2, "targets"), Map.of()))
+								)
+								.then(
+									Commands.argument("params", new ParamMapArgument())
+										.suggests(VFXCommand::suggestParamMap)
+										.executes(context2 -> play(context2, List.of(requirePlayer(context2)), params(context2)))
+										.then(
+											Commands.argument("targets", EntityArgument.players())
+												.executes(context2 -> play(context2, EntityArgument.getPlayers(context2, "targets"), params(context2)))
+										)
 								)
 				)
 			)
@@ -76,10 +85,19 @@ public final class VFXCommand {
 							.suggests(VFXCommand::suggestEffects)
 							.then(
 								Commands.argument("pos", BlockPosArgument.blockPos())
-									.executes(context2 -> playAt(context2, List.of(requirePlayer(context2))))
+									.executes(context2 -> playAt(context2, List.of(requirePlayer(context2)), Map.of()))
 									.then(
 										Commands.argument("targets", EntityArgument.players())
-											.executes(context2 -> playAt(context2, EntityArgument.getPlayers(context2, "targets")))
+											.executes(context2 -> playAt(context2, EntityArgument.getPlayers(context2, "targets"), Map.of()))
+									)
+									.then(
+										Commands.argument("params", new ParamMapArgument())
+											.suggests(VFXCommand::suggestParamMap)
+											.executes(context2 -> playAt(context2, List.of(requirePlayer(context2)), params(context2)))
+											.then(
+												Commands.argument("targets", EntityArgument.players())
+													.executes(context2 -> playAt(context2, EntityArgument.getPlayers(context2, "targets"), params(context2)))
+											)
 									)
 							)
 					)
@@ -92,7 +110,16 @@ public final class VFXCommand {
 							.suggests(VFXCommand::suggestEffects)
 							.then(
 								Commands.argument("targets", EntityArgument.entities())
-									.executes(context2 -> playEntity(context2, EntityArgument.getEntities(context2, "targets")))
+									.executes(context2 -> playEntity(context2, EntityArgument.getEntities(context2, "targets"), Map.of()))
+							)
+							.then(
+								Commands.argument("params", new ParamMapArgument())
+									.suggests(VFXCommand::suggestParamMap)
+									.executes(context2 -> playEntity(context2, List.of(requirePlayer(context2)), params(context2)))
+									.then(
+										Commands.argument("targets", EntityArgument.entities())
+											.executes(context2 -> playEntity(context2, EntityArgument.getEntities(context2, "targets"), params(context2)))
+									)
 							)
 					)
 			)
@@ -171,7 +198,7 @@ Commands.argument("targets", EntityArgument.players())
 		return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS));
 	}
 
-	private static int play(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
+	private static int play(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets, final Map<String, Float> overrides) throws CommandSyntaxException {
 		Identifier effectId = IdentifierArgument.getId(context, "effect");
 		VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
 		if (definition == null) {
@@ -182,11 +209,11 @@ Commands.argument("targets", EntityArgument.players())
 		if (selector != null && !selector.isBlank()) {
 			// Entity-targeted effect: the datapack declares its own selector, so plain /vfx play
 			// resolves it into target UUIDs and sends to the executor.
-			return playEntity(context, resolveSelector(context, selector));
+			return playEntity(context, resolveSelector(context, selector), overrides);
 		}
 
 		for (ServerPlayer player : targets) {
-			VFXAPI.sendEffect(player, effectId, Map.of(), null);
+			VFXAPI.sendEffect(player, effectId, overrides, null);
 		}
 
 		context.getSource()
@@ -204,7 +231,7 @@ Commands.argument("targets", EntityArgument.players())
 		return new EntitySelectorParser(new StringReader(selector), true).parse().findEntities(context.getSource());
 	}
 
-	private static int playEntity(final CommandContext<CommandSourceStack> context, final Collection<? extends Entity> targets) throws CommandSyntaxException {
+	private static int playEntity(final CommandContext<CommandSourceStack> context, final Collection<? extends Entity> targets, final Map<String, Float> overrides) throws CommandSyntaxException {
 		Identifier effectId = IdentifierArgument.getId(context, "effect");
 		if (!VFXDefinitionManager.get().contains(effectId)) {
 			throw ERROR_UNKNOWN_EFFECT.create(effectId.toString());
@@ -219,7 +246,7 @@ Commands.argument("targets", EntityArgument.players())
 		}
 
 		ServerPlayer sender = requirePlayer(context);
-		VFXAPI.sendEffect(sender, effectId, 0L, null, entityUuids, Map.of(), null);
+		VFXAPI.sendEffect(sender, effectId, 0L, null, entityUuids, overrides, null);
 
 		context.getSource()
 			.sendSuccess(
@@ -229,7 +256,7 @@ Commands.argument("targets", EntityArgument.players())
 		return entityUuids.size();
 	}
 
-	private static int playAt(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
+	private static int playAt(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets, final Map<String, Float> overrides) throws CommandSyntaxException {
 		Identifier effectId = IdentifierArgument.getId(context, "effect");
 		if (!VFXDefinitionManager.get().contains(effectId)) {
 			throw ERROR_UNKNOWN_EFFECT.create(effectId.toString());
@@ -238,7 +265,7 @@ Commands.argument("targets", EntityArgument.players())
 		Vec3 worldPos = pos.getCenter();
 
 		for (ServerPlayer player : targets) {
-			VFXAPI.sendEffect(player, effectId, worldPos, Map.of(), null);
+			VFXAPI.sendEffect(player, effectId, worldPos, overrides, null);
 		}
 
 		context.getSource()
@@ -410,5 +437,18 @@ Commands.argument("targets", EntityArgument.players())
 
 	private static ServerPlayer requirePlayer(final CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		return context.getSource().getPlayerOrException();
+	}
+
+	/**
+	 * Reads the optional {@code params} argument ({@code {[name:value],...}}) as an override map,
+	 * or an empty map when the argument is absent.
+	 */
+	@SuppressWarnings("unchecked")
+	private static Map<String, Float> params(final CommandContext<CommandSourceStack> context) {
+		try {
+			return context.getArgument("params", Map.class);
+		} catch (IllegalArgumentException e) {
+			return Map.of();
+		}
 	}
 }
