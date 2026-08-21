@@ -7,5 +7,6 @@
 	"commands.tompfx.too_many_params": "Too many parameters in one command (max %s)",
 	"commands.tompfx.bad_param": "Bad parameter pair (expected name:value): %s",
 	"commands.tompfx.key": "Keyframed %s of VFX %s at t=%s to %s (easing %s) for %s player(s)",
-	"commands.tompfx.list_count": "%s VFX definition(s) loaded"
+	"commands.tompfx.list_count": "%s VFX definition(s) loaded",
+	"commands.tompfx.list_errors": "§c%s broken datapack definition(s):"
 }

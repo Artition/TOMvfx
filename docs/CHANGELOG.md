@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 ### Added
+- **Обратная связь при битых датапаках.** `/vfx list` теперь выводит список датапак-файлов, которые не распарсились на последнем `/reload`, вместе с текстом ошибки — раньше они молча скипались (только в лог). `VFXDefinitionManager` хранит `parseErrors` (id → сообщение).
+### Added
 - **`entity_selector` в определении эффекта.** Поле `entity_selector` (строка-селектор, напр. `"@e[type=minecraft:zombie,distance=..10]"`) позволяет entity-эффекту (`entity_tint`/`entity_outline`) самому находить цели: сервер резолвит селектор в UUID при каждом запуске, так что достаточно `/vfx play <эффект>` без `playentity`. Пример в датапаке — `test_zombie_outline`.
 ### Added
 - **`gradient_map`: режим построения градиента и координата цвета.** Новые параметры `mode` (0 = linear, 1 = constant/stepped) и `pos` (0..1, координата цвета). В linear-режиме `pos` сдвигает центр перехода (0.5 — без сдвига); в stepped-режиме — жёсткий порог: ярче `pos` → цвет `to`, темнее → `from` (удобно для масок/стилизованных теней). У встроенного `tompfx:gradient_map` добавлены дефолты `mode: 0`, `pos: 0.5`. Настоящий ч/б — linear с `from`=чёрный, `to`=белый, `pos`=0.5; жёсткая ч/б-маска — constant с `pos`=0.5 (0 — чёрный, 0.5+ — белый). Примеры в датапаке: `test_grayscale`, `test_grayscale_constant`, `test_gradient_constant`.

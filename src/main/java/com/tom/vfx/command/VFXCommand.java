@@ -307,6 +307,17 @@ Commands.argument("targets", EntityArgument.players())
 					.append(Component.literal(" " + String.join(", ", definitions.getDefinitions().keySet().stream().map(Identifier::toString).toList()))),
 				false
 			);
+		// Surface datapack files that failed to parse so the author can find them quickly.
+		if (!definitions.getParseErrors().isEmpty()) {
+			context.getSource()
+				.sendSuccess(
+					() -> Component.translatable("commands.tompfx.list_errors", definitions.getParseErrors().size())
+						.append(Component.literal(" " + definitions.getParseErrors().entrySet().stream()
+							.map(e -> e.getKey() + ": " + e.getValue())
+							.collect(java.util.stream.Collectors.joining(" | ")))),
+					false
+				);
+		}
 		return definitions.getDefinitions().size();
 	}
 

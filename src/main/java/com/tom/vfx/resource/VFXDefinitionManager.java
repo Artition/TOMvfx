@@ -42,6 +42,8 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 	private final Map<Identifier, VFXDefinition> builtIns = new LinkedHashMap<>();
 	private volatile Map<Identifier, String> rawDefinitions = Map.of();
 	private volatile Map<Identifier, VFXDefinition> definitions = new LinkedHashMap<>();
+	/** Effect ids whose datapack JSON failed to parse, mapped to the error message. */
+	private volatile Map<Identifier, String> parseErrors = Map.of();
 
 	private VFXDefinitionManager() {
 		registerBuiltIns();
@@ -107,6 +109,7 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 
 	private void reload(final Map<Identifier, String> raw) {
 		Map<Identifier, VFXDefinition> merged = new LinkedHashMap<>(this.builtIns);
+		Map<Identifier, String> errors = new LinkedHashMap<>();
 		int loadedCount = 0;
 		for (Entry<Identifier, String> entry : raw.entrySet()) {
 			try {
@@ -115,11 +118,22 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 				loadedCount++;
 			} catch (JsonParseException | IllegalStateException | IllegalArgumentException e) {
 				// A single bad definition is logged and skipped so the rest keep loading.
+				// The error is recorded so /vfx list can surface which file is broken.
+				errors.put(entry.getKey(), e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
 				LOGGER.error("Couldn't parse VFX definition '{}'", entry.getKey(), e);
 			}
 		}
 		this.definitions = merged;
+		this.parseErrors = Map.copyOf(errors);
 		LOGGER.info("Loaded {} VFX effect definitions ({} from datapacks)", this.definitions.size(), loadedCount);
+	}
+
+	/**
+	 * The datapack effect ids that failed to parse on the last reload, mapped to their error
+	 * messages. Used by {@code /vfx list} to surface broken files.
+	 */
+	public Map<Identifier, String> getParseErrors() {
+		return this.parseErrors;
 	}
 
 	/**
