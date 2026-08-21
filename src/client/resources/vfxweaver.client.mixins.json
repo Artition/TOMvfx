@@ -1,0 +1,17 @@
+{
+	"required": true,
+	"package": "dev.vfxweaver.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"GameRendererMixin",
+		"CameraMixin",
+		"LivingEntityRenderStateMixin",
+		"LivingEntityRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

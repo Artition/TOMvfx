@@ -1,6 +1,6 @@
-# TOM Post Effects (tompfx)
+# VFX Weaver API (vfxweaver)
 
-A client-side VFX library for Minecraft on Fabric: screen post-processing (chromatic aberration, color grading, distortion, blur, pixelation and more), camera shake, world block overlays (tint/outline), entity effects (tint/outline by UUID), datapack-defined effects, server→client network triggers and a public Java API for other mods.
+A client-side VFX library/API for Minecraft on Fabric: screen post-processing (chromatic aberration, color grading, distortion, blur, pixelation, motion blur, speed lines and more), camera shake, world block overlays (tint/outline), entity effects (tint/outline by UUID), datapack-defined effects, server→client network triggers and a public Java API for other mods. Authored by **Artition**.
 
 ## Requirements
 
@@ -35,7 +35,7 @@ Run a test client/server directly from the project:
 - **World block overlays** — `block_tint` and `block_outline` rendered as world-space geometry.
 - **Entity effects** — `entity_tint` and `entity_outline` applied to entities by UUID (second-pass model render, texture-aware).
 - **Datapack-defined effects** — declarative JSON (`data/<namespace>/vfx/<effect>.json`), animated params, keyframes, world/camera/player bindings, math expressions, collections, sounds.
-- **Network triggers** — server→client `tompfx:vfx_trigger`, datapack sync over `tompfx:vfx_sync`.
+- **Network triggers** — server→client `vfxweaver:vfx_trigger`, datapack sync over `vfxweaver:vfx_sync`.
 - **Public Java API** — `VFXAPI` for other mods.
 
 ## Usage
@@ -46,10 +46,10 @@ Minimal Java API example:
 
 ```java
 // Server → client
-VFXAPI.sendEffect(serverPlayer, Identifier.of("tompfx", "screen_flash"), Map.of(), null);
+VFXAPI.sendEffect(serverPlayer, Identifier.of("vfxweaver", "screen_flash"), Map.of(), null);
 
 // Locally on the client
-VFXAPI.playEffect(Identifier.of("tompfx", "camera_shake"), 20, Map.of("amplitude_x", 0.2F), null);
+VFXAPI.playEffect(Identifier.of("vfxweaver", "camera_shake"), 20, Map.of("amplitude_x", 0.2F), null);
 ```
 
 ## Documentation
@@ -57,7 +57,7 @@ VFXAPI.playEffect(Identifier.of("tompfx", "camera_shake"), 20, Map.of("amplitude
 | File | Contents |
 |---|---|
 | [docs/GUIDE.md](docs/GUIDE.md) | Commands, effect types, datapack format, world/camera/player bindings |
-| [docs/API.md](docs/API.md) | Java API (`VFXAPI`), network protocol `tompfx:vfx_trigger` |
+| [docs/API.md](docs/API.md) | Java API (`VFXAPI`), network protocol `vfxweaver:vfx_trigger` |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How it works under the hood: render pipeline, data flow, load limits |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Versioned change history |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Branch and commit conventions |

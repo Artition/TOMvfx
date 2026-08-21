@@ -1,27 +1,27 @@
 {
 	"schemaVersion": 1,
-	"id": "tompfx",
+	"id": "vfxweaver",
 	"version": "${version}",
-	"name": "TOM Post Effects",
-	"description": "Client-side VFX library: ping-pong FBO post-processing (chromatic aberration, color grading, distortion, dent, gradient map, posterize, blur, pixelate, hue isolation, vignette, screen flash, motion blur), camera shake, block tint/outline overlays, keyframe animation, world/camera bindings, datapack-defined effects, sound triggers and a public Java API.",
+	"name": "VFX Weaver API",
+	"description": "A client-side VFX library/API for Minecraft: ping-pong FBO post-processing (chromatic aberration, color grading, distortion, dent, gradient map, posterize, blur, pixelate, hue isolation, vignette, screen flash, motion blur, speed lines), camera shake, block tint/outline overlays, entity tint/outline by UUID, keyframe animation, world/camera/player bindings, datapack-defined effects, sound triggers and a public Java API.",
 	"authors": [
-		"Tom"
+		"Artition"
 	],
 	"license": "MIT",
-	"icon": "assets/tompfx/icon.png",
+	"icon": "assets/vfxweaver/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.tom.vfx.VFXMod"
+			"dev.vfxweaver.VFXMod"
 		],
 		"client": [
-			"com.tom.vfx.client.VFXClient"
+			"dev.vfxweaver.client.VFXClient"
 		]
 	},
 	"mixins": [
-		"tompfx.mixins.json",
+		"vfxweaver.mixins.json",
 		{
-			"config": "tompfx.client.mixins.json",
+			"config": "vfxweaver.client.mixins.json",
 			"environment": "client"
 		}
 	],

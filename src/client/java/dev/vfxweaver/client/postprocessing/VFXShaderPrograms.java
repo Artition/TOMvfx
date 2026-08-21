@@ -1,0 +1,116 @@
+package dev.vfxweaver.client.postprocessing;
+
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.shaders.UniformType;
+import dev.vfxweaver.effect.VFXEffectType;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
+import org.jspecify.annotations.Nullable;
+
+/**
+ * Registers a dedicated {@link RenderPipeline} for every post-processing effect type and exposes
+ * the parameter layout of each shader (used to size and fill the {@code Config} UBO).
+ *
+ * <p>Some effects are implemented as multiple sequential passes (e.g. {@code blur} runs a
+ * horizontal and a vertical Gaussian pass). Pipelines are registered during client init so that
+ * they are picked up by the shader reload ({@code ShaderManager}) and precompiled from
+ * {@code assets/vfxweaver/shaders/post/*.fsh}.
+ */
+public final class VFXShaderPrograms {
+	/**
+	 * Describes one effect shader: its pipeline plus the ordered float parameter names of the
+	 * {@code Config} uniform block and its std140-aligned byte size.
+	 */
+	public record ProgramInfo(RenderPipeline pipeline, String[] configParams, int configUboSize) {
+	}
+
+	private static final Map<VFXEffectType, List<ProgramInfo>> PROGRAMS = new EnumMap<>(VFXEffectType.class);
+	private static @Nullable RenderPipeline copyPipeline;
+
+	private VFXShaderPrograms() {
+	}
+
+	/**
+	 * Builds and registers all effect pipelines. Safe to call multiple times (idempotent).
+	 */
+	public static void register() {
+		if (!PROGRAMS.isEmpty()) {
+			return;
+		}
+		registerPost(VFXEffectType.CHROMATIC_ABERRATION, "intensity", "radius");
+		registerPost(VFXEffectType.COLOR_GRADE, "saturation", "contrast", "brightness", "tint_r", "tint_g", "tint_b");
+		registerPost(VFXEffectType.DISTORTION, "amount", "radius");
+		registerPost(VFXEffectType.DENT, "strength", "radius", "center_x", "center_y", "line_mode", "x0", "y0", "x1", "y1");
+		registerPost(VFXEffectType.GRADIENT_MAP, "from_r", "from_g", "from_b", "to_r", "to_g", "to_b", "intensity", "mode", "pos");
+		registerPost(VFXEffectType.POSTERIZE, "strength");
+		registerMultiPass(VFXEffectType.BLUR, List.of("blur_x", "blur_y"), List.of(new String[]{"radius"}, new String[]{"radius"}));
+		registerPost(VFXEffectType.PIXELATE, "cell_size");
+		registerPost(VFXEffectType.HUE_ISOLATION, "hue", "tolerance", "intensity");
+		registerPost(VFXEffectType.VIGNETTE, "intensity", "color_r", "color_g", "color_b");
+		registerPost(VFXEffectType.SCREEN_FLASH, "alpha", "color_r", "color_g", "color_b");
+		registerPost(VFXEffectType.MOTION_BLUR, "intensity", "yaw_delta", "pitch_delta");
+		registerPost(VFXEffectType.BLOOM, "intensity", "threshold", "radius");
+		registerPost(VFXEffectType.FILM_GRAIN, "intensity", "size", "time");
+		registerPost(VFXEffectType.SCANLINES, "intensity", "line_count", "speed", "time");
+		registerPost(VFXEffectType.DEPTH_OF_FIELD, "intensity", "focus_center", "focus_range");
+		registerPost(VFXEffectType.LETTERBOX, "height", "color_r", "color_g", "color_b");
+		registerPost(VFXEffectType.INVERT, "intensity");
+		registerPost(VFXEffectType.VORTEX, "strength", "radius", "center_x", "center_y");
+		registerPost(VFXEffectType.SPEED_LINES, "center_x", "center_y", "count", "length", "width", "seed", "color_r", "color_g", "color_b", "intensity");
+
+		copyPipeline = RenderPipelines.register(
+			RenderPipeline.builder(RenderPipelines.POST_PROCESSING_SNIPPET)
+				.withLocation(Identifier.fromNamespaceAndPath("vfxweaver", "post/copy"))
+				.withVertexShader("core/screenquad")
+				.withFragmentShader(Identifier.fromNamespaceAndPath("vfxweaver", "post/copy"))
+				.withSampler("InSampler")
+				.withUniform("SamplerInfo", UniformType.UNIFORM_BUFFER)
+				.build()
+		);
+	}
+
+	/**
+	 * Returns the pipeline descriptions for an effect type (one or more sequential passes), or an
+	 * empty list when the type has no post-processing shader (e.g. {@code camera_shake}).
+	 */
+	public static List<ProgramInfo> getPrograms(final VFXEffectType type) {
+		return PROGRAMS.getOrDefault(type, List.of());
+	}
+
+	/**
+	 * Returns the pipeline that copies an arbitrary input texture to the main target.
+	 */
+	public static @Nullable RenderPipeline getCopyPipeline() {
+		return copyPipeline;
+	}
+
+	private static void registerPost(final VFXEffectType type, final String... params) {
+		registerMultiPass(type, List.of(type.getName()), List.<String[]>of(params));
+	}
+
+	private static void registerMultiPass(final VFXEffectType type, final List<String> shaders, final List<String[]> params) {
+		List<ProgramInfo> programs = new java.util.ArrayList<>(shaders.size());
+		for (int i = 0; i < shaders.size(); i++) {
+			Identifier location = Identifier.fromNamespaceAndPath("vfxweaver", "post/" + shaders.get(i));
+			RenderPipeline pipeline = RenderPipeline.builder(RenderPipelines.POST_PROCESSING_SNIPPET)
+				.withLocation(location)
+				.withVertexShader("core/screenquad")
+				.withFragmentShader(Identifier.fromNamespaceAndPath("vfxweaver", "post/" + shaders.get(i)))
+				.withSampler("InSampler")
+				.withUniform("SamplerInfo", UniformType.UNIFORM_BUFFER)
+				.withUniform("Config", UniformType.UNIFORM_BUFFER)
+				.build();
+			RenderPipelines.register(pipeline);
+			String[] configParams = params.get(i);
+			programs.add(new ProgramInfo(pipeline, configParams, align16(configParams.length * 4)));
+		}
+		PROGRAMS.put(type, List.copyOf(programs));
+	}
+
+	private static int align16(final int size) {
+		return (size + 15) & ~15;
+	}
+}

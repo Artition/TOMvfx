@@ -1,0 +1,12 @@
+{
+	"commands.vfxweaver.unknown_effect": "Unknown VFX effect: %s",
+	"commands.vfxweaver.played": "Playing VFX %s for %s player(s)",
+	"commands.vfxweaver.played_at": "Playing VFX %s at [%s, %s, %s] for %s player(s)",
+	"commands.vfxweaver.stopped": "Stopped VFX %s for %s player(s)",
+	"commands.vfxweaver.set": "Set %s parameter(s) of VFX %s for %s player(s)",
+	"commands.vfxweaver.too_many_params": "Too many parameters in one command (max %s)",
+	"commands.vfxweaver.bad_param": "Bad parameter pair (expected name:value): %s",
+	"commands.vfxweaver.key": "Keyframed %s of VFX %s at t=%s to %s (easing %s) for %s player(s)",
+	"commands.vfxweaver.list_count": "%s VFX definition(s) loaded",
+	"commands.vfxweaver.list_errors": "§c%s broken datapack definition(s):"
+}

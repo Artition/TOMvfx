@@ -1,6 +1,6 @@
 # Java API
 
-The public API for other mods interacting with tompfx. Backward compatibility matters — don't break signatures without good reason (see `AGENTS.md`).
+The public API for other mods interacting with vfxweaver. Backward compatibility matters — don't break signatures without good reason (see `AGENTS.md`).
 
 ## `com.tom.vfx.api.VFXAPI`
 
@@ -79,7 +79,7 @@ Updated on every `/reload` (see `VFXDefinitionManager.prepare`/`apply`); one bro
 
 ## Network protocol
 
-The `tompfx:vfx_trigger` packet (`VFXTriggerPayload`), clientbound play.
+The `vfxweaver:vfx_trigger` packet (`VFXTriggerPayload`), clientbound play.
 
 | Field | Type | Description |
 |---|---|---|

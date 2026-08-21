@@ -2,7 +2,7 @@
 
 ## Context and goals
 
-tompfx is a client-side VFX library for a Fabric mod: the server triggers effects over the network (or another mod — directly via `VFXAPI` on the client), the client plays and renders them. Goals: (1) declarative effects via datapack JSON without recompiling, (2) bounded render load even with many concurrent effects, (3) fault tolerance — one broken effect/datapack file must not break the rest.
+vfxweaver is a client-side VFX library for a Fabric mod: the server triggers effects over the network (or another mod — directly via `VFXAPI` on the client), the client plays and renders them. Goals: (1) declarative effects via datapack JSON without recompiling, (2) bounded render load even with many concurrent effects, (3) fault tolerance — one broken effect/datapack file must not break the rest.
 
 ## Core systems
 
@@ -32,7 +32,7 @@ tompfx is a client-side VFX library for a Fabric mod: the server triggers effect
 
 ## Data flow per frame
 
-1. `GameRendererMixin.tompfx$render` (injection before `FogRenderer.endFrame`) — called once per frame:
+1. `GameRendererMixin.vfxweaver$render` (injection before `FogRenderer.endFrame`) — called once per frame:
    - updates `VFXWorldBindings` from the current camera (position, yaw/pitch, view-rotation-projection matrix);
    - advances `VFXEffectManager.clock` by `deltaTicks` (`DeltaTracker.getGameTimeDeltaTicks()`, 0 on pause);
    - `VFXEffectManager.update()` — removes finished effects, fires due collection children, advances timelines;
@@ -51,14 +51,14 @@ The hook is right before `FogRenderer.endFrame()` in `GameRenderer.render`, i.e.
 
 ## Entity effects (second model pass)
 
-`entity_tint`/`entity_outline` are also geometry, but of the entity model rather than the world: `LivingEntityRendererMixin` in `submit` calls `submitNodeCollector.submitModel` again with the same `model`/`state`/`poseStack` but a different `RenderType`. Vanilla `EntityRenderState` has no UUID field — a mixin on `LivingEntityRenderState` adds one (the `ITomVFXEntityState` interface), filled in `extractRenderState`. Both render types use `DefaultVertexFormat.ENTITY` (model vertices; the shader ignores textures/overlay/lightmap) with custom pipelines (`assets/tompfx/shaders/core/entity_fx.{vsh,fsh}`) over `MATRICES_FOG_LIGHT_DIR_SNIPPET` — the standard UBOs (Projection/DynamicTransforms/Fog/Globals) are bound the standard way, no separate UBOs needed.
+`entity_tint`/`entity_outline` are also geometry, but of the entity model rather than the world: `LivingEntityRendererMixin` in `submit` calls `submitNodeCollector.submitModel` again with the same `model`/`state`/`poseStack` but a different `RenderType`. Vanilla `EntityRenderState` has no UUID field — a mixin on `LivingEntityRenderState` adds one (the `ITomVFXEntityState` interface), filled in `extractRenderState`. Both render types use `DefaultVertexFormat.ENTITY` (model vertices; the shader ignores textures/overlay/lightmap) with custom pipelines (`assets/vfxweaver/shaders/core/entity_fx.{vsh,fsh}`) over `MATRICES_FOG_LIGHT_DIR_SNIPPET` — the standard UBOs (Projection/DynamicTransforms/Fog/Globals) are bound the standard way, no separate UBOs needed.
 
 - `entity_tint`: a fill of the model; the effect ARGB is passed as `tintedColor` to `submitModel` and becomes the vertex color. Two modes selected by the boolean `texture`: `1` — recolour the texture (texture rgb × effect color, keeps the texture alpha), `0` — flat color with the texture only as an alpha mask (like vanilla `rendertype_outline`). Depth `LEQUAL` (occluded) or `ALWAYS_PASS` (`through_blocks: 1`), `TRANSLUCENT` blending — lands in the `ModelFeatureRenderer` translucent bucket and draws after opaque entity bodies.
 - `entity_outline`: an inverted hull — the model is scaled by `1 + width` around its vertical centre (`boundingBoxHeight/2`), the fragment shader discards front faces (`gl_FrontFacing`), depth `LEQUAL` leaves only the rim behind the silhouette (or `ALWAYS_PASS` for through-wall glow). Width is set by scale, not a uniform: the `submitModel` path has no way to bind a custom UBO for a per-draw value, and the pipeline API has no front-cull.
 
 Both effects bind the entity texture as `Sampler0` and use it as an alpha mask: texels with zero alpha are discarded, so the effect follows the texture silhouette rather than a flat box around the model. Render types are memoized by the texture `Identifier` (`LivingEntityRenderer.getTextureLocation(state)`, passed from the mixin); pipelines are shared per (mode, through-blocks).
 
-Targets are set by UUID: `/vfx playentity <effect> <selector>` collects up to 16 UUIDs and sends them in `tompfx:vfx_trigger` (`entityUuids`); `VFXEffectManager.getActiveEntityEffects(uuid)` finds the active effects for a specific entity. The UUID cap is `VFXTriggerPayload.MAX_ENTITY_UUIDS`.
+Targets are set by UUID: `/vfx playentity <effect> <selector>` collects up to 16 UUIDs and sends them in `vfxweaver:vfx_trigger` (`entityUuids`); `VFXEffectManager.getActiveEntityEffects(uuid)` finds the active effects for a specific entity. The UUID cap is `VFXTriggerPayload.MAX_ENTITY_UUIDS`.
 
 ## Load limits (protection against effect spam)
 

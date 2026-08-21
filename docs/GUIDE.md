@@ -1,9 +1,9 @@
-# TOM Post Effects (tompfx) — Usage Guide
+# TOM Post Effects (vfxweaver) — Usage Guide
 
 A client-side VFX library for Minecraft 26.1 (Fabric). Screen post-processing (ping-pong FBO), camera shake, world overlays (block tint/outline), entity effects (tint/outline by UUID), keyframe animation, world/camera/player bindings, datapacks, network triggers and a public Java API.
 
 - Guide version: 16 (see [docs/CHANGELOG.md](CHANGELOG.md) for history)
-- Mod: `tompfx-1.0.0.jar`, requires Fabric API
+- Mod: `vfxweaver-1.0.0.jar`, requires Fabric API
 
 Files: `data/<namespace>/vfx/<name>.json` and `data/<namespace>/vfx_curves/<name>.json`. After edits — `/reload`. The effect id = `<namespace>:<name>`. On a dedicated server, definitions and curves are automatically synced to clients on player join and after `/reload`, so custom (datapack) effects work for all players, not just on the server.
 
@@ -93,7 +93,7 @@ These types target living entities by UUID: the client stores the target's UUID 
 | `entity_tint` | `color_r/g/b` (0..1), `alpha` (0..1), `texture` (0/1, default 1), `through_blocks` (0/1, default 1) | Fills the entity model with the effect colour **accounting for its texture** (the texture is used as an alpha mask, so the effect follows the silhouette, not a box around the model). `texture: 1` — recolour the texture (texture × colour, the pattern is visible); `texture: 0` — flat colour with the texture only as a mask. `through_blocks: 1` — visible through walls, `0` — occluded by them |
 | `entity_outline` | `color_r/g/b` (0..1), `alpha` (0..1), `width` (0..1, default 0.05), `through_blocks` (0/1, default 0) | Silhouette outline of the "inverted hull" type: the model is expanded by `width` around its vertical centre, only back faces remain — a thin rim sticks out. The texture is used as a mask, so the outline follows the texture contour (no flat rectangle). `through_blocks: 1` — the glow is visible through walls (full silhouette), `0` — occluded by walls |
 
-Targets are set via `/vfx playentity <effect> <selector>`, via the Java API (see §7) or via the `entity_selector` field in the effect definition (then `/vfx play <effect>` is enough — the server finds the targets itself). The `tompfx:vfx_trigger` packet carries the UUID list (up to 16). One effect can target several entities at once; several effects can hang on one entity at the same time. If the selector picks more than 16 entities, the effect applies only to the first 16 (packet cap); up to 64 effects play at once in total (`MAX_ACTIVE_EFFECTS`).
+Targets are set via `/vfx playentity <effect> <selector>`, via the Java API (see §7) or via the `entity_selector` field in the effect definition (then `/vfx play <effect>` is enough — the server finds the targets itself). The `vfxweaver:vfx_trigger` packet carries the UUID list (up to 16). One effect can target several entities at once; several effects can hang on one entity at the same time. If the selector picks more than 16 entities, the effect applies only to the first 16 (packet cap); up to 64 effects play at once in total (`MAX_ACTIVE_EFFECTS`).
 
 ### 2.4 Misc
 
@@ -257,8 +257,8 @@ Example — a dent-line stuck to two world points (a dent "cuts" the screen betw
 ```
 
 Examples:
-- `tompfx_test:dent_world` — a dent stuck to the coordinate `[8, 80, 8]`, strength drops to zero within 32 blocks;
-- `tompfx_test:blur_look` — a blur (radius up to 10) that strengthens when looking south (yaw 0, pitch 0) and disappears past 60° deviation.
+- `vfxweaver_test:dent_world` — a dent stuck to the coordinate `[8, 80, 8]`, strength drops to zero within 32 blocks;
+- `vfxweaver_test:blur_look` — a blur (radius up to 10) that strengthens when looking south (yaw 0, pitch 0) and disappears past 60° deviation.
 
 ### 3.4 Easings
 
@@ -339,7 +339,7 @@ For a tint add `"texture": 1` (recolour the texture) or `"texture": 0` (flat col
 Trigger on nearby mobs (the selector picks targets, UUIDs are sent to the client):
 
 ```
-/vfx playentity tompfx_test:test_entity_outline @e[type=!player,distance=..10]
+/vfx playentity vfxweaver_test:test_entity_outline @e[type=!player,distance=..10]
 ```
 
 The same from the Java API — see `VFXAPI.sendEffect(...)` with the `List<UUID> entityUuids` argument in [docs/API.md](API.md).
@@ -352,11 +352,11 @@ The same from the Java API — see `VFXAPI.sendEffect(...)` with the `List<UUID>
 {
 	"type": "collection",
 	"effects": [
-		{ "effect": "tompfx_test:marker_persistent", "delay": 0 },
-		{ "effect": "tompfx_test:block_tint_demo", "delay": 10 },
-		{ "effect": "tompfx_test:blur_grow", "delay": 20 },
-		{ "effect": "tompfx_test:red_pulse", "delay": 40, "duration": 60 },
-		{ "effect": "tompfx:chromatic_aberration", "delay": 55, "duration": 40, "params": { "intensity": 1.2 } }
+		{ "effect": "vfxweaver_test:marker_persistent", "delay": 0 },
+		{ "effect": "vfxweaver_test:block_tint_demo", "delay": 10 },
+		{ "effect": "vfxweaver_test:blur_grow", "delay": 20 },
+		{ "effect": "vfxweaver_test:red_pulse", "delay": 40, "duration": 60 },
+		{ "effect": "vfxweaver:chromatic_aberration", "delay": 55, "duration": 40, "params": { "intensity": 1.2 } }
 	]
 }
 ```
@@ -367,13 +367,13 @@ Child effect fields: `effect` (id, required), `delay` (ticks from collection sta
 
 ## 6. Built-in effects (no datapack)
 
-Post-processing: `tompfx:chromatic_aberration`, `tompfx:color_grade`, `tompfx:distortion`, `tompfx:dent`, `tompfx:gradient_map`, `tompfx:posterize`, `tompfx:blur`, `tompfx:pixelate`, `tompfx:hue_isolation`, `tompfx:vignette`, `tompfx:screen_flash`, `tompfx:motion_blur`, `tompfx:bloom`, `tompfx:film_grain`, `tompfx:scanlines`, `tompfx:depth_of_field`, `tompfx:letterbox`, `tompfx:invert`, `tompfx:vortex`, `tompfx:speed_lines`.
+Post-processing: `vfxweaver:chromatic_aberration`, `vfxweaver:color_grade`, `vfxweaver:distortion`, `vfxweaver:dent`, `vfxweaver:gradient_map`, `vfxweaver:posterize`, `vfxweaver:blur`, `vfxweaver:pixelate`, `vfxweaver:hue_isolation`, `vfxweaver:vignette`, `vfxweaver:screen_flash`, `vfxweaver:motion_blur`, `vfxweaver:bloom`, `vfxweaver:film_grain`, `vfxweaver:scanlines`, `vfxweaver:depth_of_field`, `vfxweaver:letterbox`, `vfxweaver:invert`, `vfxweaver:vortex`, `vfxweaver:speed_lines`.
 
-World overlays: `tompfx:block_tint`, `tompfx:block_outline`.
+World overlays: `vfxweaver:block_tint`, `vfxweaver:block_outline`.
 
-Entity effects: `tompfx:entity_tint`, `tompfx:entity_outline`.
+Entity effects: `vfxweaver:entity_tint`, `vfxweaver:entity_outline`.
 
-Misc: `tompfx:camera_shake`, `tompfx:fov_modifier`.
+Misc: `vfxweaver:camera_shake`, `vfxweaver:fov_modifier`.
 
 All have fade animation (40 ticks, except where noted); params can be overridden by collections.
 
@@ -388,7 +388,7 @@ VFXAPI.sendEffect(serverPlayer, effectId, Map.of(), null); // server → client
 VFXAPI.playEffect(effectId, 0, Map.of("radius", 8.0F), EasingType.EASE_OUT_CUBIC); // locally on the client
 ```
 
-Full reference (all `VFXAPI` methods, `VFXLocalDispatcher`, the `tompfx:vfx_trigger` network packet format) — **[docs/API.md](API.md)**.
+Full reference (all `VFXAPI` methods, `VFXLocalDispatcher`, the `vfxweaver:vfx_trigger` network packet format) — **[docs/API.md](API.md)**.
 
 ---
 
@@ -418,7 +418,7 @@ Guide version: 16 — see changelog below.
 - Tighter client protection from a hostile/broken server: caps on network packet sizes (effect params, definition/curve sync), `vfx_sync` packet version check, cap on effect duration from the server, instance-id validation on stop.
 
 ### v13
-- Datapack VFX effects and curves sync with dedicated-server clients (the `tompfx:vfx_sync` packet on join and after `/reload`) — custom effects now play for players on a dedicated server, like in single-player.
+- Datapack VFX effects and curves sync with dedicated-server clients (the `vfxweaver:vfx_sync` packet on join and after `/reload`) — custom effects now play for players on a dedicated server, like in single-player.
 
 ### v12
 - `sendEffect` accepts a direct world position — no `pos_x/y/z` hack (the client immediately re-anchors spatial bindings to the point).
