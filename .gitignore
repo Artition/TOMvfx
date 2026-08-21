@@ -46,7 +46,6 @@ replay_*.log
 _to_delete/
 
 # ai agents — не коммитить файлы нейросетей
-AGENTS.md
 .opencode/
 CLAUDE.md
 .cursorrules
