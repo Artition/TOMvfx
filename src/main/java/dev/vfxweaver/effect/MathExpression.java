@@ -354,7 +354,7 @@ public final class MathExpression {
 
 		private Node parseIdentifier() {
 			int start = this.i;
-			while (this.i < this.src.length() && Character.isLetter(this.src.charAt(this.i))) {
+			while (this.i < this.src.length() && (Character.isLetter(this.src.charAt(this.i)) || this.src.charAt(this.i) == '_')) {
 				this.i++;
 			}
 			String name = this.src.substring(start, this.i);

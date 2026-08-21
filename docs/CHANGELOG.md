@@ -3,6 +3,8 @@
 Format follows [Keep a Changelog](https://keepachangelog.com/). The versions below are guide/feature-set versions of the mod (as they progressed historically, see `docs/GUIDE.md`), plus git release tags where applicable (`v1.0.x`, `gradle.properties` → `mod_version`). Add new entries at the top, in the same PR as the behavior change.
 
 ## [Unreleased]
+### Fixed
+- Expression parser now accepts `_` in identifiers — documented variables (`player_x/y/z`, `light_level`, `time_of_day`) were declared in the `expr` switch but could never be parsed.
 
 ## v1.0.2 / Guide v17
 ### Added
