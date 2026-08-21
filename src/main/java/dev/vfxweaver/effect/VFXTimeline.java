@@ -155,6 +155,15 @@ public class VFXTimeline {
 		return this.values;
 	}
 
+	/**
+	 * Names of the runtime-added constant overrides (e.g. from {@code /vfx set}), which are stored
+	 * separately from the definition values. {@link #getValue(String, float)} already prefers them
+	 * over bindings and definition values.
+	 */
+	public java.util.Set<String> getOverrideNames() {
+		return java.util.Set.copyOf(this.overrides.keySet());
+	}
+
 	public Map<String, BoundParam> getBindings() {
 		return this.bindings;
 	}
