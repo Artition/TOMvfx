@@ -1,0 +1,69 @@
+name: Bug report
+description: Report a bug or unexpected behaviour in VFX Weaver
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please fill in as much as you can.
+  - type: input
+    id: version
+    attributes:
+      label: Mod version
+      description: The mod version you are using (e.g. 1.0.2) — see the mods screen or the jar file name.
+      placeholder: "1.0.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: mc-version
+    attributes:
+      label: Minecraft version
+      options:
+        - 26.1
+        - 26.1.1
+        - 26.1.2
+        - Other (specify below)
+    validations:
+      required: true
+  - type: input
+    id: loader
+    attributes:
+      label: Fabric Loader & Fabric API versions
+      description: e.g. "Loader 0.19.3, Fabric API 0.154.0+26.1.2". You can find these in the mods screen.
+      placeholder: "Loader 0.19.3, Fabric API 0.154.0+26.1.2"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you expected to happen instead.
+      placeholder: "When I run /vfx play ... the game ... instead of ..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to trigger the issue.
+      placeholder: |
+        1. Install the mod...
+        2. Run the command / datapack...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / crash report
+      description: Paste the relevant part of the latest.log or a crash report, or link a paste. Remove personal/server IPs if any.
+      render: shell
+  - type: checkboxes
+    id: mods
+    attributes:
+      label: Environment
+      description: Which of these apply?
+      options:
+        - label: "Flashback is installed"
+        - label: "Iris / Sodium is installed"
+        - label: "Dedicated server"
+        - label: "Singleplayer"
