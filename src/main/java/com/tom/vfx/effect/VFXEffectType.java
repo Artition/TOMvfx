@@ -57,6 +57,8 @@ public enum VFXEffectType {
 	ENTITY_TINT("entity_tint"),
 	/** Renders an outline around the targeted entities. */
 	ENTITY_OUTLINE("entity_outline"),
+	/** Radial speed lines emanating from a centre point (post-processing pass). */
+	SPEED_LINES("speed_lines"),
 	/** Not an effect itself: plays a list of child effects with per-child delays. */
 	COLLECTION("collection");
 
@@ -120,6 +122,7 @@ public enum VFXEffectType {
 		case LETTERBOX -> "height".equals(parameter) ? 0.0F : Float.NaN;
 		case INVERT -> "intensity".equals(parameter) ? 0.0F : Float.NaN;
 		case VORTEX -> "strength".equals(parameter) ? 0.0F : Float.NaN;
+		case SPEED_LINES -> "intensity".equals(parameter) ? 0.0F : Float.NaN;
 		case FOV_MODIFIER -> "fov_delta".equals(parameter) ? 0.0F : Float.NaN;
 		default -> Float.NaN;
 		};

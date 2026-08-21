@@ -257,6 +257,14 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 			builtIn("tompfx", "vortex", VFXEffectType.VORTEX, 60, EasingType.EASE_IN_OUT_CUBIC,
 				param("strength", 2.5F, 0.0F), param("radius", 0.5F), param("center_x", 0.5F), param("center_y", 0.5F))
 		);
+		this.builtIns.put(
+			Identifier.fromNamespaceAndPath("tompfx", "speed_lines"),
+			builtIn("tompfx", "speed_lines", VFXEffectType.SPEED_LINES, 40, EasingType.EASE_IN_OUT_CUBIC,
+				param("center_x", 0.5F), param("center_y", 0.5F),
+				param("count", 50.0F), param("length", 0.5F), param("width", 0.5F), param("seed", 0.0F),
+				param("color_r", 1.0F), param("color_g", 1.0F), param("color_b", 1.0F),
+				param("intensity", 1.0F, 0.0F))
+		);
 		// Camera shake parameters (the shake itself is already enveloped by the shake manager).
 		this.builtIns.put(
 			Identifier.fromNamespaceAndPath("tompfx", "camera_shake"),

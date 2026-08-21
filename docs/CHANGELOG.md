@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 ### Added
+- **Новый пост-эффект `speed_lines`** — радиальные «спидлайны» от центра экрана (или заданной точки `center_x/y`) для ощущения скорости. Параметры: `count` (10..200), `length` (0..1), `width` (0..1), `seed` (0..1000), `color_r/g/b`, `intensity`. Линии круглые (учтён aspect ratio), начинаются не от центра, а от `start_radius` до `start_radius + length`. Анимация `seed` через `expr` (напр. `"t * 2.0"`) заставляет линии хаотично сменяться. Встроенный `tompfx:speed_lines`; пример в датапаке `test_speed_lines` (добавлен в `vfx:test_all`).
+### Added
 - **Оверрайды параметров в `/vfx play`, `playat`, `playentity`.** Эти команды теперь принимают необязательный параметр-мап `{[имя:значение],...}` (как `/vfx set`), который переопределяет дефолтные параметры определения при запуске — включая мировые координаты (`pos_x/y/z`). Это даёт команде/датапаку ту же возможность, что у Java API (`sendEffect(...overrides)`).
 ### Added
 - **Новые привязки и переменные игрока.** Привязки: `distance` (сырое расстояние от камеры до `pos` в блоках), `look_x/look_y/look_z` (компоненты вектора взгляда камеры), `player_x/player_y/player_z` (позиция локального игрока). В математических выражениях (`expr`) доступны переменные игрока: `health`, `hunger`, `speed`, `light_level`, `time_of_day`, `player_x/y/z`. Примеры в датапаке: `test_expr_health` (screen_flash, `expr: 1.0 - health`), `test_distance` (vignette по `bind: distance`).

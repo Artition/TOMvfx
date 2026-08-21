@@ -54,6 +54,7 @@
 | `letterbox` | `height` (0..0.5), `color_r/g/b` | Кино-полосы сверху и снизу экрана |
 | `invert` | `intensity` (0..1) | Инверсия цветов экрана |
 | `vortex` | `strength` (радианы, ± = направление), `radius`, `center_x`, `center_y` (UV) | Закручивает пиксели воронкой вокруг точки |
+| `speed_lines` | `center_x/y` (UV, по умолч. 0.5), `count` (10..200, по умолч. 50), `length` (0..1, по умолч. 0.5), `width` (0..1, по умолч. 0.5), `seed` (0..1000, по умолч. 0), `color_r/g/b`, `intensity` | Радиальные «спидлайны» от центра (или заданной точки) — ощущение скорости. Линии круглые (aspect учтён), начинаются не от самого центра, а от `start_radius` до `start_radius + length`. Анимируй `seed` через `expr` (напр. `"t * 2.0"`), чтобы линии хаотично сменялись. |
 | `fov_modifier` | `fov_delta` (градусы) | Изменение поля зрения (FOV) игрока |
 
 #### Gradient map: режимы и координата цвета
@@ -366,7 +367,7 @@
 
 ## 6. Встроенные эффекты (без датапака)
 
-Пост-обработка: `tompfx:chromatic_aberration`, `tompfx:color_grade`, `tompfx:distortion`, `tompfx:dent`, `tompfx:gradient_map`, `tompfx:posterize`, `tompfx:blur`, `tompfx:pixelate`, `tompfx:hue_isolation`, `tompfx:vignette`, `tompfx:screen_flash`, `tompfx:motion_blur`, `tompfx:bloom`, `tompfx:film_grain`, `tompfx:scanlines`, `tompfx:depth_of_field`, `tompfx:letterbox`, `tompfx:invert`, `tompfx:vortex`.
+Пост-обработка: `tompfx:chromatic_aberration`, `tompfx:color_grade`, `tompfx:distortion`, `tompfx:dent`, `tompfx:gradient_map`, `tompfx:posterize`, `tompfx:blur`, `tompfx:pixelate`, `tompfx:hue_isolation`, `tompfx:vignette`, `tompfx:screen_flash`, `tompfx:motion_blur`, `tompfx:bloom`, `tompfx:film_grain`, `tompfx:scanlines`, `tompfx:depth_of_field`, `tompfx:letterbox`, `tompfx:invert`, `tompfx:vortex`, `tompfx:speed_lines`.
 
 Мировые оверлеи: `tompfx:block_tint`, `tompfx:block_outline`.
 
