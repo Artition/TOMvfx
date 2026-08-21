@@ -3,6 +3,7 @@ package dev.vfxweaver.api;
 import dev.vfxweaver.effect.EasingFunction;
 import dev.vfxweaver.effect.EasingType;
 import dev.vfxweaver.effect.VFXDefinition;
+import dev.vfxweaver.effect.VFXServerEffects;
 import dev.vfxweaver.network.VFXTriggerPayload;
 import dev.vfxweaver.resource.VFXDefinitionManager;
 import java.util.HashMap;
@@ -189,6 +190,7 @@ public final class VFXAPI {
 		int duration = definition.isPersistent() ? -1 : definition.getDefaultDuration();
 		EasingFunction effectiveEasing = easing != null ? EasingFunction.builtIn(easing) : definition.getDefaultEasing();
 		ServerPlayNetworking.send(player, VFXTriggerPayload.play(effectId, duration, instanceId, worldPos, entityUuids, params, effectiveEasing.name()));
+		VFXServerEffects.get().record(player, effectId, duration, instanceId, worldPos, entityUuids, params, effectiveEasing.name());
 		return true;
 	}
 
@@ -204,6 +206,7 @@ public final class VFXAPI {
 		final EasingType easing
 	) {
 		ServerPlayNetworking.send(player, VFXTriggerPayload.play(effectId, durationTicks, params, easing));
+		VFXServerEffects.get().record(player, effectId, durationTicks, 0L, null, List.of(), params, easing.name());
 	}
 
 	/**
@@ -211,6 +214,7 @@ public final class VFXAPI {
 	 */
 	public static void sendStop(final ServerPlayer player, final Identifier effectId) {
 		ServerPlayNetworking.send(player, VFXTriggerPayload.stop(effectId));
+		VFXServerEffects.get().stop(player, effectId);
 	}
 
 	/**
@@ -224,6 +228,7 @@ public final class VFXAPI {
 	 */
 	public static void sendStop(final ServerPlayer player, final Identifier effectId, final long instanceId) {
 		ServerPlayNetworking.send(player, VFXTriggerPayload.stop(effectId, instanceId));
+		VFXServerEffects.get().stop(player, effectId, instanceId);
 	}
 
 	/**

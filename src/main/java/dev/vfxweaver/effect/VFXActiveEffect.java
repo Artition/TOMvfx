@@ -210,6 +210,13 @@ public class VFXActiveEffect {
 		return this.timeline.getDuration();
 	}
 
+	/**
+	 * True when the timeline restarts once it reaches its duration.
+	 */
+	public boolean isLooping() {
+		return this.loop;
+	}
+
 	public VFXTimeline getTimeline() {
 		return this.timeline;
 	}

@@ -3,6 +3,7 @@ package dev.vfxweaver;
 import dev.vfxweaver.command.ParamMapArgument;
 import dev.vfxweaver.command.VFXCommand;
 import dev.vfxweaver.effect.VFXCurveManager;
+import dev.vfxweaver.effect.VFXServerEffects;
 import dev.vfxweaver.network.VFXPayloads;
 import dev.vfxweaver.network.VFXSyncPayload;
 import dev.vfxweaver.resource.VFXDefinitionManager;
@@ -49,6 +50,11 @@ public class VFXMod implements ModInitializer {
 
 	private static void syncToPlayer(final ServerPlayer player, final boolean joined) {
 		sendSync(player);
+		if (joined) {
+			// Re-apply effects that were sent to this player before the reconnect, after their
+			// definitions have been synced so the client can resolve the effect ids.
+			VFXServerEffects.get().applyTo(player);
+		}
 	}
 
 	private static void syncToAll(final MinecraftServer server, final net.minecraft.server.packs.resources.CloseableResourceManager manager, final boolean success) {
