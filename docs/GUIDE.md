@@ -54,7 +54,7 @@ Repeated `/vfx play` of the same effect **does not replace** the playing instanc
 | `letterbox` | `height` (0..0.5), `color_r/g/b` | Cinematic bars at the top and bottom of the screen |
 | `invert` | `intensity` (0..1) | Inverts the screen colours |
 | `vortex` | `strength` (radians, ± = direction), `radius`, `center_x`, `center_y` (UV) | Swirls pixels into a funnel around a point |
-| `speed_lines` | `center_x/y` (UV, default 0.5), `count` (10..200, default 50), `length` (0..1, default 0.5), `width` (0..1, default 0.5), `seed` (0..1000, default 0), `color_r/g/b`, `intensity` | Radial "speed lines" from the centre (or a given point) — a sense of speed. The lines are circular (aspect accounted for), start not at the very centre but from `start_radius` to `start_radius + length`. Animate `seed` via `expr` (e.g. `"t * 2.0"`) to make the lines swap chaotically. |
+| `speed_lines` | `center_x/y` (UV, default 0.5), `count` (10..200, default 50), `length` (0..1, default 0.5), `length_rand` (0..1, default 0.7), `width` (0..1, default 0.5), `seed` (0..1000, default 0), `color_r/g/b`, `intensity` | "Speed lines" emanating from the screen borders and pointing to the centre (or a given point) — a sense of speed. `length` is the fraction of the ray to the border each line covers; `length_rand` controls how much the per-line length varies (0 = all equal, 1 = full random). Animate `seed` via `expr` (e.g. `"t * 2.0"`) to make the lines swap chaotically. |
 | `fov_modifier` | `fov_delta` (degrees) | Changes the player's field of view (FOV) |
 
 #### Gradient map: modes and colour coordinate

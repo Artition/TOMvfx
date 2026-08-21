@@ -14,6 +14,7 @@ layout(std140) uniform Config {
     float center_y;
     float count;
     float line_length;
+    float length_rand;
     float width;
     float seed;
     float color_r;
@@ -44,16 +45,35 @@ void main() {
     // Per-sector pseudo-random value, seeded by the (possibly animated) seed.
     float rand = fract(sin(segIndex * 12.9898 + seed * 78.233) * 43758.5453);
 
-    // Line width mask inside the sector.
+    // Distance from the centre to the screen border along this ray.
+    vec2 dir = vec2(cos(angle), sin(angle));
+    float tx = dir.x > 0.0 ? (1.0 - center_x) * aspect / max(dir.x, 1.0e-4)
+             : dir.x < 0.0 ? -center_x * aspect / min(dir.x, -1.0e-4)
+             : 1.0e9;
+    float ty = dir.y > 0.0 ? (1.0 - center_y) / max(dir.y, 1.0e-4)
+             : dir.y < 0.0 ? -center_y / min(dir.y, -1.0e-4)
+             : 1.0e9;
+    float borderDist = min(tx, ty);
+
+    // Random length: the configured length (a fraction of the ray to the border) is
+    // scaled by the sector random value; length_rand (0..1) controls how much.
+    float randomFactor = mix(1.0, rand, clamp(length_rand, 0.0, 1.0));
+    float lineLen = clamp(line_length, 0.0, 1.0) * borderDist * randomFactor;
+
+    // Lines emanate from the screen border and point inward towards the centre.
+    float inner = max(borderDist - lineLen, 0.0);
+
+    // Position along the line: 0 = inner tip, 1 = border. Each line is a wedge:
+    // full width at the border (the thick part is cut off by the screen edge) and
+    // tapering to a point towards the centre, with a sharp (step) edge.
+    float linePos = clamp((dist - inner) / max(lineLen, 1.0e-4), 0.0, 1.0);
+    float taper = linePos;
     float localAngle = (normAngle - segIndex * segmentSize) / segmentSize;
     float w = clamp(width, 0.0, 1.0);
-    float widthMask = 1.0 - smoothstep(w * 0.5, w * 0.5 + 0.01, abs(localAngle - 0.5) * 2.0);
+    float widthMask = step(abs(localAngle - 0.5) * 2.0, w * taper);
 
-    // Length mask: lines start a bit away from the centre and end at start + length.
-    float startRadius = 0.1;
-    float endRadius = startRadius + clamp(line_length, 0.0, 1.0);
-    float distMask = smoothstep(startRadius, startRadius + 0.02, dist)
-        * (1.0 - smoothstep(endRadius - 0.05, endRadius, dist));
+    // Hard radial clip: only the [inner, borderDist] band is drawn.
+    float distMask = step(inner, dist) * (1.0 - step(borderDist, dist));
 
     float lineMask = widthMask * distMask;
 

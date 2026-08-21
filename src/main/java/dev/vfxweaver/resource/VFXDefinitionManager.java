@@ -261,7 +261,7 @@ public class VFXDefinitionManager extends SimplePreparableReloadListener<Map<Ide
 			Identifier.fromNamespaceAndPath("vfxweaver", "speed_lines"),
 			builtIn("vfxweaver", "speed_lines", VFXEffectType.SPEED_LINES, 40, EasingType.EASE_IN_OUT_CUBIC,
 				param("center_x", 0.5F), param("center_y", 0.5F),
-				param("count", 50.0F), param("length", 0.5F), param("width", 0.5F), param("seed", 0.0F),
+				param("count", 50.0F), param("length", 0.5F), param("length_rand", 0.7F), param("width", 0.5F), param("seed", 0.0F),
 				param("color_r", 1.0F), param("color_g", 1.0F), param("color_b", 1.0F),
 				param("intensity", 1.0F, 0.0F))
 		);

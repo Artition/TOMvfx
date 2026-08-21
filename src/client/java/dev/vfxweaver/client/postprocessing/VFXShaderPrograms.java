@@ -59,7 +59,7 @@ public final class VFXShaderPrograms {
 		registerPost(VFXEffectType.LETTERBOX, "height", "color_r", "color_g", "color_b");
 		registerPost(VFXEffectType.INVERT, "intensity");
 		registerPost(VFXEffectType.VORTEX, "strength", "radius", "center_x", "center_y");
-		registerPost(VFXEffectType.SPEED_LINES, "center_x", "center_y", "count", "length", "width", "seed", "color_r", "color_g", "color_b", "intensity");
+		registerPost(VFXEffectType.SPEED_LINES, "center_x", "center_y", "count", "length", "length_rand", "width", "seed", "color_r", "color_g", "color_b", "intensity");
 
 		copyPipeline = RenderPipelines.register(
 			RenderPipeline.builder(RenderPipelines.POST_PROCESSING_SNIPPET)
