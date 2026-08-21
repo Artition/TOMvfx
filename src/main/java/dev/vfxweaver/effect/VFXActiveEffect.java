@@ -158,6 +158,11 @@ public class VFXActiveEffect {
 		if (this.loop) {
 			return false;
 		}
+		// A non-looping instance whose runtime edits have all animated to zero is invisible:
+		// remove it instead of letting it linger (persistent instances would never end otherwise).
+		if (this.timeline.isZeroedOut()) {
+			return true;
+		}
 		return this.timeline.isFinished();
 	}
 

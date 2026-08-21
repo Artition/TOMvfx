@@ -2,8 +2,8 @@
 
 A client-side VFX library for Minecraft 26.1–26.1.2 (Fabric). Screen post-processing (ping-pong FBO), camera shake, world overlays (block tint/outline), entity effects (tint/outline by UUID), keyframe animation, world/camera/player bindings, datapacks, network triggers and a public Java API.
 
-- Guide version: 17 (see [docs/CHANGELOG.md](CHANGELOG.md) for history)
-- Mod: `vfxweaver-1.0.2.jar`, requires Fabric API
+- Guide version: 18 (see [docs/CHANGELOG.md](CHANGELOG.md) for history)
+- Mod: `vfxweaver-1.0.3.jar`, requires Fabric API
 
 Files: `data/<namespace>/vfx/<name>.json` and `data/<namespace>/vfx_curves/<name>.json`. After edits — `/reload`. The effect id = `<namespace>:<name>`. On a dedicated server, definitions and curves are automatically synced to clients on player join and after `/reload`, so custom (datapack) effects work for all players, not just on the server.
 
@@ -429,7 +429,12 @@ Post-processing pipeline, world overlays, effect clock, load limits and fault to
 
 Versioned feature history — **[docs/CHANGELOG.md](CHANGELOG.md)**.
 
-Guide version: 17 — see changelog below.
+Guide version: 18 — see changelog below.
+
+### v18
+- Effects survive a reconnect correctly: the server remembers `/vfx key` keyframes and resumes playback from the position it was left at (protocol version 5).
+- Non-looping effects whose runtime edits (`/vfx key`, `/vfx set`) animate to zero remove themselves instead of lingering invisibly.
+- `/vfx playentity` accepts an optional `[players]` list — who sees the effect (default: the executing player).
 
 ### v17
 - Flashback compatibility: client-local effects are recorded into Flashback replays and re-triggered during playback (soft dependency, reflection-based, no compile-time coupling).

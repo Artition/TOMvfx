@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). The versions bel
 ## [Unreleased]
 ### Added
 - **`[players]` argument in `/vfx playentity`.** The command now accepts an optional player list at the end (`/vfx playentity <effect> [{params}] <targets> [players]`) — who sees the effect. Previously it was always sent only to the executing player.
+### Changed
+- **BREAKING**: `PROTOCOL_VERSION` 4 → 5: the play packet carries a resume offset (`elapsedTicks`) used when re-applying effects after a reconnect.
+### Fixed
+- **Effects no longer restart from the first keyframe after a reconnect.** The server now records keyframes added via `/vfx key` and, on rejoin, re-sends the play with the elapsed offset plus the recorded keys, so the animation continues where it left off. Keyframes past the nominal duration also extend the effect's lifetime correctly (previously such effects were dropped early or replayed from scratch).
+- **Non-looping effects whose runtime edits animate to zero remove themselves.** A persistent instance keyed down to zero (`/vfx key ... <time> 0`, or `/vfx set param 0`) used to linger invisibly until the active-effect cap evicted it; it is now removed as soon as every edited parameter rests at zero. Definition-driven and looping effects are unaffected.
 
 ## v1.0.3
 ### Fixed

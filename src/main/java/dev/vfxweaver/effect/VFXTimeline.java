@@ -137,6 +137,30 @@ public class VFXTimeline {
 	}
 
 	/**
+	 * True when every runtime parameter edit (keyframes from {@code /vfx key}, constants from
+	 * {@code /vfx set}) has completed and rests at zero — i.e. the edits that were driving the
+	 * effect no longer contribute anything visible. Definition-driven values are not considered:
+	 * a plain persistent effect without runtime edits never counts as zeroed out.
+	 */
+	public boolean isZeroedOut() {
+		if (this.overrides.isEmpty()) {
+			return false;
+		}
+		for (final AnimatedValue value : this.overrides.values()) {
+			Keyframe rest = null;
+			for (final Keyframe frame : value.getKeyframes()) {
+				if (frame.time() <= this.elapsed) {
+					rest = frame;
+				}
+			}
+			if (rest == null || rest.value() != 0.0F) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * Normalized progress in {@code [0, 1]}.
 	 */
 	public float getProgress() {
