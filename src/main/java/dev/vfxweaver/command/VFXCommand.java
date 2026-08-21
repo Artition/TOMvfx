@@ -110,15 +110,23 @@ public final class VFXCommand {
 							.suggests(VFXCommand::suggestEffects)
 							.then(
 								Commands.argument("targets", EntityArgument.entities())
-									.executes(context2 -> playEntity(context2, EntityArgument.getEntities(context2, "targets"), Map.of()))
+									.executes(context2 -> playEntity(context2, EntityArgument.getEntities(context2, "targets"), List.of(requirePlayer(context2)), Map.of()))
+									.then(
+										Commands.argument("players", EntityArgument.players())
+											.executes(context2 -> playEntity(context2, EntityArgument.getEntities(context2, "targets"), EntityArgument.getPlayers(context2, "players"), Map.of()))
+									)
 							)
 							.then(
 								Commands.argument("params", new ParamMapArgument())
 									.suggests(VFXCommand::suggestParamMap)
-									.executes(context2 -> playEntity(context2, List.of(requirePlayer(context2)), params(context2)))
+									.executes(context2 -> playEntity(context2, List.of(requirePlayer(context2)), List.of(requirePlayer(context2)), params(context2)))
 									.then(
 										Commands.argument("targets", EntityArgument.entities())
-											.executes(context2 -> playEntity(context2, EntityArgument.getEntities(context2, "targets"), params(context2)))
+											.executes(context2 -> playEntity(context2, EntityArgument.getEntities(context2, "targets"), List.of(requirePlayer(context2)), params(context2)))
+											.then(
+												Commands.argument("players", EntityArgument.players())
+													.executes(context2 -> playEntity(context2, EntityArgument.getEntities(context2, "targets"), EntityArgument.getPlayers(context2, "players"), params(context2)))
+											)
 									)
 							)
 					)
@@ -209,7 +217,7 @@ Commands.argument("targets", EntityArgument.players())
 		if (selector != null && !selector.isBlank()) {
 			// Entity-targeted effect: the datapack declares its own selector, so plain /vfx play
 			// resolves it into target UUIDs and sends to the executor.
-			return playEntity(context, resolveSelector(context, selector), overrides);
+			return playEntity(context, resolveSelector(context, selector), List.of(requirePlayer(context)), overrides);
 		}
 
 		for (ServerPlayer player : targets) {
@@ -231,7 +239,7 @@ Commands.argument("targets", EntityArgument.players())
 		return new EntitySelectorParser(new StringReader(selector), true).parse().findEntities(context.getSource());
 	}
 
-	private static int playEntity(final CommandContext<CommandSourceStack> context, final Collection<? extends Entity> targets, final Map<String, Float> overrides) throws CommandSyntaxException {
+	private static int playEntity(final CommandContext<CommandSourceStack> context, final Collection<? extends Entity> targets, final Collection<ServerPlayer> viewers, final Map<String, Float> overrides) throws CommandSyntaxException {
 		Identifier effectId = IdentifierArgument.getId(context, "effect");
 		if (!VFXDefinitionManager.get().contains(effectId)) {
 			throw ERROR_UNKNOWN_EFFECT.create(effectId.toString());
@@ -245,8 +253,9 @@ Commands.argument("targets", EntityArgument.players())
 			entityUuids.add(entity.getUUID());
 		}
 
-		ServerPlayer sender = requirePlayer(context);
-		VFXAPI.sendEffect(sender, effectId, 0L, null, entityUuids, overrides, null);
+		for (ServerPlayer viewer : viewers) {
+			VFXAPI.sendEffect(viewer, effectId, 0L, null, entityUuids, overrides, null);
+		}
 
 		context.getSource()
 			.sendSuccess(
