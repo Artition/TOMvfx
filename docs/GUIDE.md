@@ -1,13 +1,28 @@
 # TOM Post Effects (vfxweaver) — Usage Guide
 
-A client-side VFX library for Minecraft 26.1 (Fabric). Screen post-processing (ping-pong FBO), camera shake, world overlays (block tint/outline), entity effects (tint/outline by UUID), keyframe animation, world/camera/player bindings, datapacks, network triggers and a public Java API.
+A client-side VFX library for Minecraft 26.1–26.1.2 (Fabric). Screen post-processing (ping-pong FBO), camera shake, world overlays (block tint/outline), entity effects (tint/outline by UUID), keyframe animation, world/camera/player bindings, datapacks, network triggers and a public Java API.
 
-- Guide version: 16 (see [docs/CHANGELOG.md](CHANGELOG.md) for history)
-- Mod: `vfxweaver-1.0.0.jar`, requires Fabric API
+- Guide version: 17 (see [docs/CHANGELOG.md](CHANGELOG.md) for history)
+- Mod: `vfxweaver-1.0.2.jar`, requires Fabric API
 
 Files: `data/<namespace>/vfx/<name>.json` and `data/<namespace>/vfx_curves/<name>.json`. After edits — `/reload`. The effect id = `<namespace>:<name>`. On a dedicated server, definitions and curves are automatically synced to clients on player join and after `/reload`, so custom (datapack) effects work for all players, not just on the server.
 
 The mutating commands `/vfx play`, `/vfx playat`, `/vfx playentity`, `/vfx stop`, `/vfx set`, `/vfx key` require operator rights (gamemaster level); `/vfx list` is open to everyone.
+
+---
+
+## Contents
+
+1. [Commands](#1-commands)
+2. [Effect types](#2-effect-types) — screen post-processing, world overlays, entity effects, misc
+3. [Datapack format](#3-datapack-format) — definition fields, ways to set a param, world bindings, easings
+4. [Persistent effects: on/off with animation](#4-persistent-effects-onoff-with-animation)
+5. [Collections — several effects with one command](#5-collections--several-effects-with-one-command)
+6. [Built-in effects (no datapack)](#6-built-in-effects-no-datapack)
+7. [Java API (for other mods)](#7-java-api-for-other-mods)
+8. [Flashback compatibility](#8-flashback-compatibility)
+9. [How it renders (for debugging)](#9-how-it-renders-for-debugging)
+10. [Changelog](#changelog)
 
 ---
 
@@ -390,9 +405,11 @@ VFXAPI.playEffect(effectId, 0, Map.of("radius", 8.0F), EasingType.EASE_OUT_CUBIC
 
 Full reference (all `VFXAPI` methods, `VFXLocalDispatcher`, the `vfxweaver:vfx_trigger` network packet format) — **[docs/API.md](API.md)**.
 
+Effects sent via `VFXAPI.sendEffect` are remembered server-side: if the player reconnects (or a new player joins) while the effect is still running, it is re-applied automatically with its remaining duration. Persistent (`-1`) effects are always re-applied. Stopping an effect (`sendStop`) also forgets it.
+
 ---
 
-## 7.5 Flashback compatibility
+## 8. Flashback compatibility
 
 [Flashback](https://modrinth.com/mod/flashback) is an optional companion (a soft dependency — the mod works fine without it). When Flashback is installed, **client-local effects** (started on the client, e.g. via `VFXAPI.playEffect` or other mods calling it) are automatically written into the replay as custom Flashback actions, so they appear in the replay at the exact tick they were played. Server-triggered effects travel as `vfxweaver:vfx_trigger` packets, which Flashback captures and replays on its own.
 
@@ -402,7 +419,7 @@ Things to know:
 - The recording requires no config: start a Flashback recording, play effects, done.
 - No interaction with the Flashback editor keyframes; this is replay recording/playback only.
 
-## 8. How it renders (for debugging)
+## 9. How it renders (for debugging)
 
 Post-processing pipeline, world overlays, effect clock, load limits and fault tolerance — **[docs/ARCHITECTURE.md](ARCHITECTURE.md)**.
 

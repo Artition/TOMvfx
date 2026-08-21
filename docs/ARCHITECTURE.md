@@ -18,7 +18,11 @@ vfxweaver is a client-side VFX library for a Fabric mod: the server triggers eff
               ▼                 ▼                     ▼                  ▼
    VFXPostProcessingManager  VFXWorldOverlayRenderer  CameraShakeManager  VFXEntityEffectRenderer
    (shader post-effects)     (block_tint/outline)     (camera shake,     (entity_tint/outline,
-                                                       FOV)                second model pass)
+                                                        FOV)                second model pass)
+              │
+              ▼
+   FlashbackCompat (client, optional) ── writes replay actions into Flashback.RECORDER
+   VFXServerEffects (server) ────────── re-applies remembered effects to (re)joining players
 ```
 
 - **`VFXDefinitionManager`** (main) — definition registry: built-ins (`registerBuiltIns()`) + datapack (`data/<ns>/vfx/<name>.json`, reloaded via `SimplePreparableReloadListener`). Registered on both the server and the client (for single-player).
@@ -59,6 +63,14 @@ The hook is right before `FogRenderer.endFrame()` in `GameRenderer.render`, i.e.
 Both effects bind the entity texture as `Sampler0` and use it as an alpha mask: texels with zero alpha are discarded, so the effect follows the texture silhouette rather than a flat box around the model. Render types are memoized by the texture `Identifier` (`LivingEntityRenderer.getTextureLocation(state)`, passed from the mixin); pipelines are shared per (mode, through-blocks).
 
 Targets are set by UUID: `/vfx playentity <effect> <selector>` collects up to 16 UUIDs and sends them in `vfxweaver:vfx_trigger` (`entityUuids`); `VFXEffectManager.getActiveEntityEffects(uuid)` finds the active effects for a specific entity. The UUID cap is `VFXTriggerPayload.MAX_ENTITY_UUIDS`.
+
+## Flashback integration
+
+Flashback (https://modrinth.com/mod/flashback) is a **soft dependency**: the mod works without it, and nothing in the code compiles against it — all access is reflective (`Class.forName`, `Proxy`), guarded by `FabricLoader.isModLoaded("flashback")`.
+
+- **`FlashbackCompat`** (client) — registered as an `Action` (`vfxweaver:effect_trigger`) in Flashback's `ActionRegistry`. Client-local plays (`VFXAPI.playEffect` through `VFXClientAPI`) are written into the active replay via `Recorder.submitCustomTask` (`effectId + durationTicks + easing + params`); on playback Flashback calls the action's `handle`, which decodes the payload and re-triggers the effect on the render thread. A per-tick `END_CLIENT_TICK` hook detects a recording start (`Flashback.RECORDER` becoming non-null and ready) and snapshots the already-running effects so they appear from the first replay tick. Persistent/looping effects are skipped (no recorded stop event → they would loop forever). Server-triggered effects are *not* recorded here — they travel as `vfxweaver:vfx_trigger` packets which Flashback captures and replays itself.
+
+- **`VFXServerEffects`** (server) — remembers every `VFXAPI.sendEffect` per player (`player → effectId → params/duration/easing/startTick`). On player (re)join (`SYNC_DATA_PACK_CONTENTS`, after datapack sync) the still-active effects are re-sent with their remaining duration; expired entries are pruned, persistent (`-1`) always re-applied. Bounded per player (`MAX_EFFECTS_PER_PLAYER`). Disabled while a Flashback replay is being played back (`Flashback.isInReplay()`) so effects already carried by the replay are not doubled.
 
 ## Load limits (protection against effect spam)
 

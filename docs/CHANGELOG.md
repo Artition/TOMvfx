@@ -1,10 +1,22 @@
 # Changelog
 
-Format follows [Keep a Changelog](https://keepachangelog.com/). The versions below are guide/feature-set versions of the mod (as they progressed historically, see `docs/GUIDE.md`), not git release tags: the project currently has no separate release versioning (`gradle.properties` keeps a fixed `mod_version=1.0.0`). Add new entries at the top, in the same PR as the behavior change.
+Format follows [Keep a Changelog](https://keepachangelog.com/). The versions below are guide/feature-set versions of the mod (as they progressed historically, see `docs/GUIDE.md`), plus git release tags where applicable (`v1.0.x`, `gradle.properties` → `mod_version`). Add new entries at the top, in the same PR as the behavior change.
 
 ## [Unreleased]
+
+## v1.0.2 / Guide v17
 ### Added
-- **New post-effect `speed_lines`** — radial "speed lines" from the screen centre (or a given point `center_x/y`) to convey speed. Params: `count` (10..200), `length` (0..1), `width` (0..1), `seed` (0..1000), `color_r/g/b`, `intensity`. The lines are circular (aspect ratio accounted for), start not at the centre but from `start_radius` to `start_radius + length`. Animating `seed` via `expr` (e.g. `"t * 2.0"`) makes the lines swap chaotically. Built-in `vfxweaver:speed_lines`; datapack example `test_speed_lines` (added to `vfx:test_all`).
+- **Flashback compatibility** — client-local VFX effects (started via `VFXAPI.playEffect` or other mods on the client) are written into Flashback replays as custom actions and re-triggered during playback; effects already running when a recording starts are snapshotted into the replay. Flashback is a soft dependency (`suggests`, reflection-based, no compile-time coupling). Server-triggered effects already travel as `vfxweaver:vfx_trigger` packets which Flashback replays on its own.
+- **Server-side effect memory (`VFXServerEffects`)** — effects sent via `VFXAPI.sendEffect` are remembered per player and re-applied on reconnect/join with their remaining duration (persistent `-1` effects always; finite ones while not expired). Pruned when expired; disabled during Flashback replay playback so replays are not doubled.
+
+### Changed
+- **Minecraft support widened to 26.1 – 26.1.2** (built against 26.1.2, `fabric.mod.json` `"minecraft": "~26.1"` covers the whole line; verified the API compiles on 26.1.2 without changes).
+- **`speed_lines` reworked** — lines now emanate from the screen borders as wedges (full width at the edge, clipped by it, tapering to a point towards the centre) with sharp step edges, instead of a radial band around the centre. New `length_rand` param (0..1) controls how much the per-line length varies with the seed.
+
+## v1.0.0 / Guide v16
+### Added
+- Entity effects `entity_tint` / `entity_outline` (by UUID), `/vfx playentity`.
+- `through_blocks` (0/1) on both entity effect types.
 ### Added
 - **Parameter overrides in `/vfx play`, `playat`, `playentity`.** These commands now accept an optional param-map `{[name:value],...}` (like `/vfx set`) that overrides the definition's default params at trigger time — including world coordinates (`pos_x/y/z`). This gives the command/datapack the same capability as the Java API (`sendEffect(...overrides)`).
 ### Added
