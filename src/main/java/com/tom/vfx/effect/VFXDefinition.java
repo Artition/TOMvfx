@@ -34,6 +34,7 @@ public class VFXDefinition {
 	private final List<ChildEffect> children;
 	private final List<BlockPos> positions;
 	private final @Nullable Identifier sound;
+	private final @Nullable String entitySelector;
 
 	private VFXDefinition(
 		final Identifier id,
@@ -46,7 +47,8 @@ public class VFXDefinition {
 		final int fadeTicks,
 		final List<ChildEffect> children,
 		final List<BlockPos> positions,
-		final @Nullable Identifier sound
+		final @Nullable Identifier sound,
+		final @Nullable String entitySelector
 	) {
 		this.id = id;
 		this.type = type;
@@ -59,6 +61,7 @@ public class VFXDefinition {
 		this.children = List.copyOf(children);
 		this.positions = List.copyOf(positions);
 		this.sound = sound;
+		this.entitySelector = entitySelector;
 	}
 
 	/**
@@ -71,7 +74,7 @@ public class VFXDefinition {
 		final EasingFunction defaultEasing,
 		final Map<String, ParamSpec> params
 	) {
-		return create(id, type, defaultDuration, defaultEasing, params, false, false, 0, List.of(), List.of(), null);
+		return create(id, type, defaultDuration, defaultEasing, params, false, false, 0, List.of(), List.of(), null, null);
 	}
 
 	/**
@@ -88,7 +91,7 @@ public class VFXDefinition {
 		final int fadeTicks,
 		final List<ChildEffect> children
 	) {
-		return create(id, type, defaultDuration, defaultEasing, params, persistent, loop, fadeTicks, children, List.of(), null);
+		return create(id, type, defaultDuration, defaultEasing, params, persistent, loop, fadeTicks, children, List.of(), null, null);
 	}
 
 	/**
@@ -107,7 +110,27 @@ public class VFXDefinition {
 		final List<BlockPos> positions,
 		final @Nullable Identifier sound
 	) {
-		return new VFXDefinition(id, type, defaultDuration, defaultEasing, params, persistent, loop, fadeTicks, children, positions, sound);
+		return create(id, type, defaultDuration, defaultEasing, params, persistent, loop, fadeTicks, children, positions, sound, null);
+	}
+
+	/**
+	 * Creates a definition programmatically with all fields plus an entity selector.
+	 */
+	public static VFXDefinition create(
+		final Identifier id,
+		final VFXEffectType type,
+		final int defaultDuration,
+		final EasingFunction defaultEasing,
+		final Map<String, ParamSpec> params,
+		final boolean persistent,
+		final boolean loop,
+		final int fadeTicks,
+		final List<ChildEffect> children,
+		final List<BlockPos> positions,
+		final @Nullable Identifier sound,
+		final @Nullable String entitySelector
+	) {
+		return new VFXDefinition(id, type, defaultDuration, defaultEasing, params, persistent, loop, fadeTicks, children, positions, sound, entitySelector);
 	}
 
 	/**
@@ -164,7 +187,11 @@ public class VFXDefinition {
 			sound = Identifier.parse(GsonHelper.getAsString(json, "sound"));
 		}
 
-		return new VFXDefinition(id, type, duration, easing, params, persistent, loop, fadeTicks, children, positions, sound);
+		String entitySelector = json.has("entity_selector") && !json.get("entity_selector").isJsonNull()
+			? GsonHelper.getAsString(json, "entity_selector")
+			: null;
+
+		return new VFXDefinition(id, type, duration, easing, params, persistent, loop, fadeTicks, children, positions, sound, entitySelector);
 	}
 
 	/**
@@ -456,6 +483,15 @@ public class VFXDefinition {
 	 */
 	public @Nullable Identifier getSound() {
 		return this.sound;
+	}
+
+	/**
+	 * Optional entity selector string (e.g. {@code "@e[type=minecraft:zombie,distance=..10]"}).
+	 * When present, the server resolves it to the target entities' UUIDs on every play, so an
+	 * entity effect can be triggered with plain {@code /vfx play} (no {@code playentity} needed).
+	 */
+	public @Nullable String getEntitySelector() {
+		return this.entitySelector;
 	}
 
 	/**

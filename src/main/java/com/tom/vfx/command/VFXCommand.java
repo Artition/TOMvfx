@@ -1,6 +1,7 @@
 package com.tom.vfx.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
@@ -28,6 +29,7 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
+import net.minecraft.commands.arguments.selector.EntitySelectorParser;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -171,8 +173,16 @@ Commands.argument("targets", EntityArgument.players())
 
 	private static int play(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
 		Identifier effectId = IdentifierArgument.getId(context, "effect");
-		if (!VFXDefinitionManager.get().contains(effectId)) {
+		VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
+		if (definition == null) {
 			throw ERROR_UNKNOWN_EFFECT.create(effectId.toString());
+		}
+
+		String selector = definition.getEntitySelector();
+		if (selector != null && !selector.isBlank()) {
+			// Entity-targeted effect: the datapack declares its own selector, so plain /vfx play
+			// resolves it into target UUIDs and sends to the executor.
+			return playEntity(context, resolveSelector(context, selector));
 		}
 
 		for (ServerPlayer player : targets) {
@@ -185,6 +195,13 @@ Commands.argument("targets", EntityArgument.players())
 				false
 			);
 		return targets.size();
+	}
+
+	/**
+	 * Parses a raw entity selector string and resolves it against the command source.
+	 */
+	private static List<? extends Entity> resolveSelector(final CommandContext<CommandSourceStack> context, final String selector) throws CommandSyntaxException {
+		return new EntitySelectorParser(new StringReader(selector), true).parse().findEntities(context.getSource());
 	}
 
 	private static int playEntity(final CommandContext<CommandSourceStack> context, final Collection<? extends Entity> targets) throws CommandSyntaxException {
