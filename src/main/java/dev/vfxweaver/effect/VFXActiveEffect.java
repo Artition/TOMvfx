@@ -110,6 +110,11 @@ public class VFXActiveEffect {
 			this.elapsed = raw;
 		}
 		this.timeline.update(this.elapsed);
+		if (!this.isFadingOut() && this.timeline.stopReached(this.elapsed)) {
+			// Stop marker (/vfx key <effect> stop <time>): end gracefully through the usual
+			// fade-out path; instances without fadeTicks are removed outright.
+			this.beginFadeOut(now);
+		}
 	}
 
 	/**
@@ -148,19 +153,14 @@ public class VFXActiveEffect {
 	}
 
 	/**
-	 * True when the effect reached the end of its timeline, finished fading out, or never ends
-	 * because it loops (looping instances only end once stopped).
+	 * True when the effect reached the end of its timeline (or its stop marker), finished fading
+	 * out, or never ends because it loops (looping instances only end once stopped or marked).
 	 */
 	public boolean isFinished() {
 		if (this.isFadingOut()) {
 			return this.getWeight() <= 0.0F;
 		}
-		if (this.loop) {
-			return false;
-		}
-		// A non-looping instance whose runtime edits have all animated to zero is invisible:
-		// remove it instead of letting it linger (persistent instances would never end otherwise).
-		if (this.timeline.isZeroedOut()) {
+		if (!this.loop && this.timeline.isZeroedOut()) {
 			return true;
 		}
 		return this.timeline.isFinished();

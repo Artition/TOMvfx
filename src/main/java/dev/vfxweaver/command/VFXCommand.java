@@ -15,6 +15,7 @@ import dev.vfxweaver.api.VFXAPI;
 import dev.vfxweaver.effect.EasingType;
 import dev.vfxweaver.effect.VFXCurveManager;
 import dev.vfxweaver.effect.VFXDefinition;
+import dev.vfxweaver.effect.VFXTimeline;
 import dev.vfxweaver.network.VFXTriggerPayload;
 import dev.vfxweaver.resource.VFXDefinitionManager;
 import java.util.ArrayList;
@@ -61,7 +62,17 @@ public final class VFXCommand {
 						.then(
 							Commands.argument("effect", IdentifierArgument.id())
 								.suggests(VFXCommand::suggestEffects)
-								.executes(context2 -> play(context2, List.of(requirePlayer(context2)), Map.of()))
+								.then(
+									Commands.literal(VFXTimeline.STOP_PARAM)
+										.then(
+											Commands.argument("time", IntegerArgumentType.integer(0))
+												.executes(context2 -> keyframeStop(context2, List.of(requirePlayer(context2))))
+												.then(
+													Commands.argument("targets", EntityArgument.players())
+														.executes(context2 -> keyframeStop(context2, EntityArgument.getPlayers(context2, "targets")))
+												)
+										)
+								)
 								.then(
 									Commands.argument("targets", EntityArgument.players())
 										.executes(context2 -> play(context2, EntityArgument.getPlayers(context2, "targets"), Map.of()))
@@ -331,6 +342,26 @@ Commands.argument("targets", EntityArgument.players())
 		return targets.size();
 	}
 
+	/**
+	 * Handles {@code /vfx key <effect> stop <time>}: marks the end of the animation on every
+	 * running instance of the effect for the target players. Travels as a regular keyframe with
+	 * the magic parameter name (see {@link VFXTimeline#STOP_PARAM}), so the server registry
+	 * records it and reconnects resume with the marker intact.
+	 */
+	private static int keyframeStop(final CommandContext<CommandSourceStack> context, final Collection<ServerPlayer> targets) throws CommandSyntaxException {
+		Identifier effectId = IdentifierArgument.getId(context, "effect");
+		int time = IntegerArgumentType.getInteger(context, "time");
+		for (ServerPlayer player : targets) {
+			VFXAPI.sendKeyframe(player, effectId, VFXTimeline.STOP_PARAM, time, 0.0F, EasingType.LINEAR);
+		}
+		context.getSource()
+			.sendSuccess(
+				() -> Component.translatable("commands.vfxweaver.key", VFXTimeline.STOP_PARAM, effectId.toString(), time, 0.0F, EasingType.LINEAR.name(), targets.size()),
+				false
+			);
+		return targets.size();
+	}
+
 	private static String currentEasing(final CommandContext<CommandSourceStack> context) {
 		return StringArgumentType.getString(context, "easing");
 	}
@@ -379,7 +410,10 @@ Commands.argument("targets", EntityArgument.players())
 			final Identifier effectId = context.getArgument("effect", Identifier.class);
 			final VFXDefinition definition = VFXDefinitionManager.get().get(effectId);
 			if (definition != null) {
-				return SharedSuggestionProvider.suggest(definition.getParams().keySet(), builder);
+				final List<String> names = new ArrayList<>(definition.getParams().size() + 1);
+				names.add(VFXTimeline.STOP_PARAM);
+				names.addAll(definition.getParams().keySet());
+				return SharedSuggestionProvider.suggest(names, builder);
 			}
 		} catch (IllegalArgumentException ignored) {
 			// effect argument missing or not a valid id yet — nothing to suggest.

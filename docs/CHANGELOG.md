@@ -5,6 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). The versions bel
 ## [Unreleased]
 ### Added
 - **`[players]` argument in `/vfx playentity`.** The command now accepts an optional player list at the end (`/vfx playentity <effect> [{params}] <targets> [players]`) — who sees the effect. Previously it was always sent only to the executing player.
+- **Stop marker: `/vfx key <effect> stop <time>`.** An explicit end-of-animation keyframe: when a running instance reaches `time`, it stops itself — fading out over its `fade_ticks`, or instantly without them. Also ends persistent and looping instances, and survives reconnects like regular keyframes (the server records and re-sends it).
 ### Changed
 - **BREAKING**: `PROTOCOL_VERSION` 4 → 5: the play packet carries a resume offset (`elapsedTicks`) used when re-applying effects after a reconnect.
 ### Fixed

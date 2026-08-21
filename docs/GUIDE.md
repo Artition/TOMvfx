@@ -36,6 +36,7 @@ The mutating commands `/vfx play`, `/vfx playat`, `/vfx playentity`, `/vfx stop`
 | `/vfx stop <effect> [players]` | Stop the effect (all its instances). Effects with `fade_ticks > 0` fade out smoothly. |
 | `/vfx set <effect> {[param:value],...} [players]` | Live override of params of a **running** effect, without restarting the timeline. If the effect is not running — a persistent instance is started with those values. Tab walks the syntax: `{` → `[` → param name → `:` value → `]` → `,` (new pair) or `}`. |
 | `/vfx key <effect> <param> <time> <value> [easing] [players]` | Add/replace a keyframe of a param of a running effect (time — ticks from start, easing — curve to the next keyframe, Tab autocomplete including custom datapack curve names). |
+| `/vfx key <effect> stop <time> [players]` | Mark the end of the animation: when a running instance reaches `time`, it stops itself (fading out over its `fade_ticks`, or instantly without them). Works on persistent and looping instances too; survives reconnects like regular keyframes. |
 | `/vfx list` | List all loaded definitions (built-ins + datapack). |
 
 On `/vfx stop` the effect is removed instantly if `fade_ticks` is not set or is 0; otherwise — a smooth fade to neutral values.
@@ -434,6 +435,7 @@ Guide version: 18 — see changelog below.
 ### v18
 - Effects survive a reconnect correctly: the server remembers `/vfx key` keyframes and resumes playback from the position it was left at (protocol version 5).
 - Non-looping effects whose runtime edits (`/vfx key`, `/vfx set`) animate to zero remove themselves instead of lingering invisibly.
+- `/vfx key <effect> stop <time>` — an explicit end-of-animation marker on a running effect (fades out and removes itself at that tick; also ends looping instances).
 - `/vfx playentity` accepts an optional `[players]` list — who sees the effect (default: the executing player).
 
 ### v17
